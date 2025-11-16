@@ -1,0 +1,9 @@
+.gocache
+.git
+.gitignore
+.idea
+.vscode
+*.swp
+*.swo
+.DS_Store
+bin

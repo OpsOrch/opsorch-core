@@ -1,12 +1,12 @@
 # OpsOrch Core
 
-**OpsOrch Core is a stateless, open-source orchestration layer that unifies incident, log, metric, dashboard, ticket, and messaging workflows behind a single, provider-agnostic API.**  
+OpsOrch Core is a stateless, open-source orchestration layer that unifies incident, log, metric, dashboard, ticket, and messaging workflows behind a single, provider-agnostic API. 
 It does not store operational data, and it does not include any built-in vendor integrations.  
 External adapters implement provider logic and are loaded dynamically by OpsOrch Core.
 
 OpsOrch Core provides:
 - Unified API surfaces
-- Secret management (Vault, KMS, AES-256 for dev)
+- Secret management
 - Capability registry
 - Schema boundaries (evolving)
 - Routing and request orchestration
@@ -19,6 +19,93 @@ Adapters live in separate repos such as:
 - opsorch-adapter-grafana
 - opsorch-adapter-jira
 - opsorch-adapter-slack
+
+## Adapter Loading Model
+
+OpsOrch Core never links vendor logic directly. Each capability is wired via an **in-process provider** that you import into the binary. The provider registers itself (e.g., `incident.RegisterProvider("pagerduty", pagerduty.New)`) and is selected with env `OPSORCH_<CAP>_PROVIDER`.
+
+Environment variables for any capability (`incident`, `log`, `metric`, `dashboard`, `ticket`, `messaging`, `secret`):
+- `OPSORCH_<CAP>_PROVIDER=<registered name>`
+- `OPSORCH_<CAP>_CONFIG=<json>`
+
+### Using an in-process provider
+1) Add the adapter dependency to the core binary you are building:
+```bash
+go get github.com/opsorch/opsorch-adapter-pagerduty
+```
+2) Import the adapter for side effects so it registers itself (create `cmd/opsorch/providers.go` if you prefer to keep imports separate):
+```go
+package main
+
+import (
+    _ "github.com/opsorch/opsorch-adapter-pagerduty/incident" // registers with incident registry
+    _ "github.com/opsorch/opsorch-adapter-elasticsearch/log"  // registers with log registry
+)
+```
+3) Select the provider via env and pass its config:
+```bash
+OPSORCH_INCIDENT_PROVIDER=pagerduty OPSORCH_INCIDENT_CONFIG='{"apiKey":"...","routingKey":"..."}' \
+OPSORCH_LOG_PROVIDER=elasticsearch OPSORCH_LOG_CONFIG='{"url":"http://..."}' \
+go run ./cmd/opsorch
+```
+
+### Quick start: run locally and curl
+
+Run the server (defaults to :8080) with a registered provider and its config:
+```bash
+OPSORCH_INCIDENT_PROVIDER=<registered> OPSORCH_INCIDENT_CONFIG='{"token":"..."}' go run ./cmd/opsorch
+```
+
+Hit the API:
+```bash
+curl -s http://localhost:8080/incidents
+curl -s -X POST http://localhost:8080/incidents \
+  -H "Content-Type: application/json" \
+  -d '{"title":"test","status":"open","severity":"sev3"}'
+```
+
+### TLS
+
+To terminate HTTPS directly in opsorch-core, set both env vars:
+
+```bash
+OPSORCH_TLS_CERT_FILE=/path/to/server.crt OPSORCH_TLS_KEY_FILE=/path/to/server.key go run ./cmd/opsorch
+```
+
+If only one is provided the server will refuse to start.
+
+### Docker image
+
+A Dockerfile is provided that builds the core binary and bundles the mock adapter plugins at `/opt/opsorch/plugins`. You can also build a core-only base image and layer plugins later.
+
+Build an image (override `IMAGE` to change the tag; default is `opsorch-core:latest`).
+The `PLUGINS` build arg controls which plugin directories under `./plugins` are built and bundled (defaults to `incidentmock logmock secretmock`).
+
+```bash
+make docker-build IMAGE=opsorch-core:dev PLUGINS="incidentmock logmock secretmock"
+```
+
+Build a core-only base image (no plugins included):
+
+```bash
+make docker-build-base BASE_IMAGE=opsorch-core-base:dev
+```
+
+Run with the packaged plugin binaries:
+
+```bash
+docker run --rm -p 8080:8080 \
+  -e OPSORCH_INCIDENT_PLUGIN=/opt/opsorch/plugins/incidentmock \
+  -e OPSORCH_LOG_PLUGIN=/opt/opsorch/plugins/logmock \
+  -e OPSORCH_SECRET_PLUGIN=/opt/opsorch/plugins/secretmock \
+  opsorch-core:dev
+```
+
+If you built without overriding `IMAGE`, run with `opsorch-core:latest` instead of `opsorch-core:dev`.
+
+Mount or copy additional adapter binaries and point `OPSORCH_<CAP>_PLUGIN` env vars at them to swap providers.
+
+To bundle your own plugins, add their source under `plugins/<name>` (or vendor them in), then include them in `PLUGINS` when building: `make docker-build PLUGINS="incidentmock logmock secretmock myprovider"`.
 
 ## Key Concepts
 
@@ -33,6 +120,12 @@ OpsOrch exposes API endpoints for:
 - Messaging
 
 Schemas live under `schema/` and evolve as the system matures.
+
+### Shared Query Scope
+All query payloads accept `schema.QueryScope`, a minimal set of filters adapters can map into their native query languages. Fields are optional and may be ignored by providers:
+- `service`: canonical OpsOrch service ID (map to tags, project IDs, components)
+- `team`: owner/team (map to escalation policies, components, tags)
+- `environment`: coarse env such as `prod`, `staging`, `dev` (map to env labels)
 
 ### Adapter Architecture
 OpsOrch Core contains **no provider logic**.  

@@ -34,7 +34,7 @@ opsorch-adapter-<provider>/
 - **opsorch-core**: routing, secret management, registry, HTTP layer.
 - **adapter repos**: implement the capability interfaces.
 
-Adapters do not live inside opsorch-core.
+Adapters do not live inside opsorch-core. They are loaded at runtime either via registered constructors or local plugin binaries.
 
 ---
 
@@ -122,6 +122,15 @@ Providers can be:
 - dynamically loaded
 - injected through config
 
+### Plugin-Based Loading (no remote services)
+
+OpsOrch Core can launch a local adapter binary as a child process (no network hops) when `OPSORCH_<CAP>_PLUGIN` is set or the provider config includes a `plugin` path. RPC is JSON over stdin/stdout:
+
+- Request: `{ "method": "incident.list" | "log.query" | ..., "config": {...}, "payload": {...} }`
+- Response: `{ "result": <value>, "error": "<msg>" }`
+
+The plugin process stays alive and receives multiple RPC calls on the same stdio stream.
+
 ---
 
 ## 6. Normalization Responsibilities
@@ -135,6 +144,16 @@ Adapters must normalize provider data into the **current schema version** of:
 - DashboardView
 - Ticket
 - MessageResult
+
+### Shared Query Scope
+
+Every query struct includes `schema.QueryScope` so providers can accept common filters without inventing per-provider shapes. Fields are optional, and providers may ignore ones they do not support.
+
+- `Service`: canonical OpsOrch service ID; map to service tags, project IDs, components, etc.
+- `Team`: owning team; map to escalation policies, components, tags, or labels.
+- `Environment`: coarse environment such as `prod`, `staging`, `dev`; map to provider env labels.
+
+Adapters should translate any recognized scope fields into their native query primitives (tags/labels/filters) and document which fields they honor.
 
 **Schema shapes will change during development.**  
 Adapters must track these changes.
@@ -231,4 +250,3 @@ This guide explains:
 - how they evolve alongside schema changes  
 
 It **intentionally avoids prescribing model shapes**, because those will be defined as the system grows.
-
