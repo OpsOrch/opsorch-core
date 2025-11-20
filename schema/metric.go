@@ -7,7 +7,7 @@ type MetricQuery struct {
 	Expression string         `json:"expression"`
 	Start      time.Time      `json:"start"`
 	End        time.Time      `json:"end"`
-	Step       time.Duration  `json:"step"`
+	Step       int            `json:"step"` // in seconds
 	Scope      QueryScope     `json:"scope,omitempty"`
 	Metadata   map[string]any `json:"metadata,omitempty"`
 }

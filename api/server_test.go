@@ -468,7 +468,7 @@ func TestLogQuery(t *testing.T) {
 
 func TestMetricQuery(t *testing.T) {
 	srv := &Server{metric: MetricHandler{provider: stubMetricProvider{}}}
-	body, _ := json.Marshal(schema.MetricQuery{Expression: "up", Start: time.Now(), End: time.Now(), Step: time.Second})
+	body, _ := json.Marshal(schema.MetricQuery{Expression: "up", Start: time.Now(), End: time.Now(), Step: 1})
 	req := httptest.NewRequest(http.MethodPost, "/metrics/query", bytes.NewReader(body))
 	w := httptest.NewRecorder()
 
