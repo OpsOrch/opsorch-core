@@ -58,6 +58,7 @@ func (s *Server) handleTicket(w http.ResponseWriter, r *http.Request) bool {
 			writeProviderError(w, err)
 			return true
 		}
+		logAudit(r, "ticket.query")
 		writeJSON(w, http.StatusOK, tickets)
 		return true
 	case len(segments) == 1 && r.Method == http.MethodPost:
@@ -71,7 +72,7 @@ func (s *Server) handleTicket(w http.ResponseWriter, r *http.Request) bool {
 			writeProviderError(w, err)
 			return true
 		}
-		logMutatingAction(r, "create_ticket", "ticket", t.ID)
+		logAudit(r, "ticket.created")
 		writeJSON(w, http.StatusCreated, t)
 		return true
 	case len(segments) == 2 && r.Method == http.MethodGet:
@@ -81,21 +82,22 @@ func (s *Server) handleTicket(w http.ResponseWriter, r *http.Request) bool {
 			writeProviderError(w, err)
 			return true
 		}
+		logAudit(r, "ticket.get")
 		writeJSON(w, http.StatusOK, t)
 		return true
 	case len(segments) == 2 && r.Method == http.MethodPatch:
 		id := segments[1]
-		var input schema.UpdateTicketInput
-		if err := decodeJSON(r, &input); err != nil {
+		var in schema.UpdateTicketInput
+		if err := decodeJSON(r, &in); err != nil {
 			writeError(w, http.StatusBadRequest, orcherr.OpsOrchError{Code: "bad_request", Message: err.Error()})
 			return true
 		}
-		t, err := s.ticket.provider.Update(r.Context(), id, input)
+		t, err := s.ticket.provider.Update(r.Context(), id, in)
 		if err != nil {
 			writeProviderError(w, err)
 			return true
 		}
-		logMutatingAction(r, "update_ticket", "ticket", id)
+		logAudit(r, "ticket.updated")
 		writeJSON(w, http.StatusOK, t)
 		return true
 	default:

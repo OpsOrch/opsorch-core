@@ -104,6 +104,11 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	requestID := requestIDFromRequest(r)
+
+	// Set headers for downstream
+	w.Header().Set("X-Request-ID", requestID)
+
 	switch {
 	case r.URL.Path == "/" && r.Method == http.MethodGet:
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})

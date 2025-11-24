@@ -31,10 +31,6 @@ func (s stubIncidentProvider) Query(ctx context.Context, query schema.IncidentQu
 	return res, nil
 }
 
-func (s stubIncidentProvider) List(ctx context.Context) ([]schema.Incident, error) {
-	return []schema.Incident{{ID: "1", Title: "test", CreatedAt: time.Now(), UpdatedAt: time.Now()}}, nil
-}
-
 func (s stubIncidentProvider) Get(ctx context.Context, id string) (schema.Incident, error) {
 	return schema.Incident{ID: id, Title: "test", CreatedAt: time.Now(), UpdatedAt: time.Now()}, nil
 }
@@ -74,6 +70,15 @@ func (s stubMetricProvider) Query(ctx context.Context, q schema.MetricQuery) ([]
 	return []schema.MetricSeries{{
 		Name:   "cpu",
 		Points: []schema.MetricPoint{{Timestamp: time.Now(), Value: 1.0}},
+	}}, nil
+}
+
+func (s stubMetricProvider) Describe(ctx context.Context, scope schema.QueryScope) ([]schema.MetricDescriptor, error) {
+	return []schema.MetricDescriptor{{
+		Name:        "cpu",
+		Type:        "gauge",
+		Description: "CPU usage",
+		Labels:      []string{"host"},
 	}}, nil
 }
 
@@ -243,26 +248,6 @@ func TestIncidentMissingProvider(t *testing.T) {
 	}
 }
 
-func TestIncidentList(t *testing.T) {
-	srv := &Server{incident: IncidentHandler{provider: stubIncidentProvider{}}, corsOrigin: "*"}
-	req := httptest.NewRequest(http.MethodGet, "/incidents", nil)
-	w := httptest.NewRecorder()
-
-	srv.ServeHTTP(w, req)
-
-	res := w.Result()
-	if res.StatusCode != http.StatusOK {
-		t.Fatalf("expected 200, got %d", res.StatusCode)
-	}
-	var out []schema.Incident
-	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
-	if len(out) != 1 || out[0].ID != "1" {
-		t.Fatalf("unexpected incident response: %+v", out)
-	}
-}
-
 func TestIncidentQuery(t *testing.T) {
 	srv := &Server{incident: IncidentHandler{provider: stubIncidentProvider{}}, corsOrigin: "*"}
 	body, _ := json.Marshal(schema.IncidentQuery{Limit: 1})
@@ -281,33 +266,6 @@ func TestIncidentQuery(t *testing.T) {
 	}
 	if len(out) != 1 || out[0].ID != "1" {
 		t.Fatalf("unexpected incident response: %+v", out)
-	}
-}
-
-func TestIncidentListViaPlugin(t *testing.T) {
-	tmp := t.TempDir()
-	pluginPath := filepath.Join(tmp, "incidentmock")
-	build := exec.Command("go", "build", "-o", pluginPath, "../plugins/incidentmock")
-	build.Env = append(os.Environ(), "GOCACHE="+filepath.Join(tmp, "gocache"), "GOMODCACHE="+filepath.Join(tmp, "gomodcache"), "CGO_ENABLED=0")
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build plugin: %v output=%s", err, string(out))
-	}
-
-	srv := &Server{incident: IncidentHandler{provider: newIncidentPluginProvider(pluginPath, nil)}, corsOrigin: "*"}
-	req := httptest.NewRequest(http.MethodGet, "/incidents", nil)
-	w := httptest.NewRecorder()
-
-	srv.ServeHTTP(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d", w.Code)
-	}
-	var out []schema.Incident
-	if err := json.NewDecoder(w.Body).Decode(&out); err != nil {
-		t.Fatalf("decode: %v", err)
-	}
-	if len(out) != 1 || out[0].ID != "p1" {
-		t.Fatalf("unexpected plugin incident response: %+v", out)
 	}
 }
 
@@ -349,7 +307,7 @@ func TestLogQueryViaPlugin(t *testing.T) {
 	}
 
 	srv := &Server{log: LogHandler{provider: newLogPluginProvider(pluginPath, nil)}, corsOrigin: "*"}
-	body, _ := json.Marshal(schema.LogQuery{Query: "test", Start: time.Now(), End: time.Now()})
+	body, _ := json.Marshal(schema.LogQuery{Expression: &schema.LogExpression{Search: "test"}, Start: time.Now(), End: time.Now()})
 	req := httptest.NewRequest(http.MethodPost, "/logs/query", bytes.NewReader(body))
 	w := httptest.NewRecorder()
 
@@ -448,7 +406,7 @@ func TestProviderConfigRequiresSecretProvider(t *testing.T) {
 
 func TestLogQuery(t *testing.T) {
 	srv := &Server{log: LogHandler{provider: stubLogProvider{}}}
-	body, _ := json.Marshal(schema.LogQuery{Query: "test", Start: time.Now(), End: time.Now()})
+	body, _ := json.Marshal(schema.LogQuery{Expression: &schema.LogExpression{Search: "test"}, Start: time.Now(), End: time.Now()})
 	req := httptest.NewRequest(http.MethodPost, "/logs/query", bytes.NewReader(body))
 	w := httptest.NewRecorder()
 
@@ -468,7 +426,7 @@ func TestLogQuery(t *testing.T) {
 
 func TestMetricQuery(t *testing.T) {
 	srv := &Server{metric: MetricHandler{provider: stubMetricProvider{}}}
-	body, _ := json.Marshal(schema.MetricQuery{Expression: "up", Start: time.Now(), End: time.Now(), Step: 1})
+	body, _ := json.Marshal(schema.MetricQuery{Expression: &schema.MetricExpression{MetricName: "up"}, Start: time.Now(), End: time.Now(), Step: 1})
 	req := httptest.NewRequest(http.MethodPost, "/metrics/query", bytes.NewReader(body))
 	w := httptest.NewRecorder()
 
@@ -486,27 +444,31 @@ func TestMetricQuery(t *testing.T) {
 	}
 }
 
-func TestServiceQuery(t *testing.T) {
-	srv := &Server{service: ServiceHandler{provider: stubServiceProvider{}}}
-
-	req := httptest.NewRequest(http.MethodGet, "/services", nil)
+func TestMetricDescribe(t *testing.T) {
+	srv := &Server{metric: MetricHandler{provider: stubMetricProvider{}}}
+	req := httptest.NewRequest(http.MethodGet, "/metrics/describe?service=api", nil)
 	w := httptest.NewRecorder()
+
 	srv.ServeHTTP(w, req)
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", w.Code)
 	}
-	var services []schema.Service
-	if err := json.NewDecoder(w.Body).Decode(&services); err != nil {
+	var out map[string][]schema.MetricDescriptor
+	if err := json.NewDecoder(w.Body).Decode(&out); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if len(services) != 1 || services[0].ID != "svc1" {
-		t.Fatalf("unexpected service response: %+v", services)
+	if len(out["metrics"]) != 1 || out["metrics"][0].Name != "cpu" {
+		t.Fatalf("unexpected metric describe response: %+v", out)
 	}
+}
+
+func TestServiceQuery(t *testing.T) {
+	srv := &Server{service: ServiceHandler{provider: stubServiceProvider{}}}
 
 	body, _ := json.Marshal(schema.ServiceQuery{Name: "service"})
-	req = httptest.NewRequest(http.MethodPost, "/services/query", bytes.NewReader(body))
-	w = httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/services/query", bytes.NewReader(body))
+	w := httptest.NewRecorder()
 	srv.ServeHTTP(w, req)
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", w.Code)

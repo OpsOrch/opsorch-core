@@ -43,14 +43,6 @@ func (s *Server) handleService(w http.ResponseWriter, r *http.Request) bool {
 	}
 
 	switch {
-	case r.URL.Path == "/services" && r.Method == http.MethodGet:
-		services, err := s.service.provider.Query(r.Context(), schema.ServiceQuery{})
-		if err != nil {
-			writeProviderError(w, err)
-			return true
-		}
-		writeJSON(w, http.StatusOK, services)
-		return true
 	case r.URL.Path == "/services/query" && r.Method == http.MethodPost:
 		var query schema.ServiceQuery
 		if err := decodeJSON(r, &query); err != nil {
@@ -62,6 +54,7 @@ func (s *Server) handleService(w http.ResponseWriter, r *http.Request) bool {
 			writeProviderError(w, err)
 			return true
 		}
+		logAudit(r, "service.query")
 		writeJSON(w, http.StatusOK, services)
 		return true
 	default:

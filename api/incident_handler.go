@@ -59,14 +59,7 @@ func (s *Server) handleIncident(w http.ResponseWriter, r *http.Request) bool {
 			writeProviderError(w, err)
 			return true
 		}
-		writeJSON(w, http.StatusOK, incidents)
-		return true
-	case len(segments) == 1 && r.Method == http.MethodGet:
-		incidents, err := s.incident.provider.List(r.Context())
-		if err != nil {
-			writeProviderError(w, err)
-			return true
-		}
+		logAudit(r, "incident.query")
 		writeJSON(w, http.StatusOK, incidents)
 		return true
 	case len(segments) == 1 && r.Method == http.MethodPost:
@@ -80,7 +73,7 @@ func (s *Server) handleIncident(w http.ResponseWriter, r *http.Request) bool {
 			writeProviderError(w, err)
 			return true
 		}
-		logMutatingAction(r, "create_incident", "incident", inc.ID)
+		logAudit(r, "incident.created")
 		writeJSON(w, http.StatusCreated, inc)
 		return true
 	case len(segments) == 2 && r.Method == http.MethodGet:
@@ -90,6 +83,7 @@ func (s *Server) handleIncident(w http.ResponseWriter, r *http.Request) bool {
 			writeProviderError(w, err)
 			return true
 		}
+		logAudit(r, "incident.get")
 		writeJSON(w, http.StatusOK, inc)
 		return true
 	case len(segments) == 2 && r.Method == http.MethodPatch:
@@ -104,7 +98,7 @@ func (s *Server) handleIncident(w http.ResponseWriter, r *http.Request) bool {
 			writeProviderError(w, err)
 			return true
 		}
-		logMutatingAction(r, "update_incident", "incident", id)
+		logAudit(r, "incident.updated")
 		writeJSON(w, http.StatusOK, inc)
 		return true
 	case len(segments) == 3 && segments[2] == "timeline" && r.Method == http.MethodGet:
@@ -114,6 +108,7 @@ func (s *Server) handleIncident(w http.ResponseWriter, r *http.Request) bool {
 			writeProviderError(w, err)
 			return true
 		}
+		logAudit(r, "incident.timeline.get")
 		writeJSON(w, http.StatusOK, timeline)
 		return true
 	case len(segments) == 3 && segments[2] == "timeline" && r.Method == http.MethodPost:
@@ -130,7 +125,7 @@ func (s *Server) handleIncident(w http.ResponseWriter, r *http.Request) bool {
 			writeProviderError(w, err)
 			return true
 		}
-		logMutatingAction(r, "append_incident_timeline", "incident", id)
+		logAudit(r, "incident.timeline.appended")
 		writeJSON(w, http.StatusCreated, map[string]string{"status": "ok"})
 		return true
 	default:

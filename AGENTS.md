@@ -46,7 +46,7 @@ Example (simplified):
 
 ```go
 type IncidentProvider interface {
-    List(ctx context.Context) ([]schema.Incident, error)
+    Query(ctx context.Context, query schema.IncidentQuery) ([]schema.Incident, error)
     Get(ctx context.Context, id string) (schema.Incident, error)
     Create(ctx context.Context, in schema.CreateIncidentInput) (schema.Incident, error)
     Update(ctx context.Context, id string, in schema.UpdateIncidentInput) (schema.Incident, error)
@@ -126,7 +126,7 @@ Providers can be:
 
 OpsOrch Core can launch a local adapter binary as a child process (no network hops) when `OPSORCH_<CAP>_PLUGIN` is set or the provider config includes a `plugin` path. RPC is JSON over stdin/stdout:
 
-- Request: `{ "method": "incident.list" | "log.query" | ..., "config": {...}, "payload": {...} }`
+- Request: `{ "method": "incident.query" | "log.query" | "metric.describe" | ..., "config": {...}, "payload": {...} }`
 - Response: `{ "result": <value>, "error": "<msg>" }`
 
 The plugin process stays alive and receives multiple RPC calls on the same stdio stream.
@@ -182,7 +182,7 @@ Adapters must:
 
 ## 8. How to Create a New Adapter
 
-1. Create repo `opsorch-adapter-<provider>`
+1. Create repo `opsorch-<provider>-adapter`
 2. Add dependency:  
    ```
    go get github.com/opsorch/opsorch-core

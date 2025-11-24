@@ -12,13 +12,13 @@ OpsOrch Core provides:
 - Routing and request orchestration
 
 Adapters live in separate repos such as:
-- opsorch-adapter-pagerduty
-- opsorch-adapter-incidentio
-- opsorch-adapter-prometheus
-- opsorch-adapter-elasticsearch
-- opsorch-adapter-grafana
-- opsorch-adapter-jira
-- opsorch-adapter-slack
+- opsorch-pagerduty-adapter
+- opsorch-incidentio-adapter
+- opsorch-prometheus-adapter
+- opsorch-elasticsearch-adapter
+- opsorch-grafana-adapter
+- opsorch-jira-adapter
+- opsorch-slack-adapter
 
 ## Adapter Loading Model
 
@@ -58,10 +58,27 @@ OPSORCH_INCIDENT_PROVIDER=<registered> OPSORCH_INCIDENT_CONFIG='{"token":"..."}'
 
 Hit the API:
 ```bash
-curl -s http://localhost:8080/incidents
+curl -s -X POST http://localhost:8080/incidents/query -d '{}'
 curl -s -X POST http://localhost:8080/incidents \
   -H "Content-Type: application/json" \
   -d '{"title":"test","status":"open","severity":"sev3"}'
+  -d '{"title":"test","status":"open","severity":"sev3"}'
+
+# Query Metrics
+curl -s -X POST http://localhost:8080/metrics/query \
+  -H "Content-Type: application/json" \
+  -d '{
+    "expression": {
+      "metricName": "http_requests_total",
+      "aggregation": "sum"
+    },
+    "start": "2023-10-01T00:00:00Z",
+    "end": "2023-10-01T01:00:00Z",
+    "step": 60
+  }'
+
+# Discover Metrics
+curl -s "http://localhost:8080/metrics/describe?service=api"
 ```
 
 ### TLS
@@ -127,6 +144,35 @@ All query payloads accept `schema.QueryScope`, a minimal set of filters adapters
 - `team`: owner/team (map to escalation policies, components, tags)
 - `environment`: coarse env such as `prod`, `staging`, `dev` (map to env labels)
 
+### Structured Queries
+OpsOrch uses structured expressions for querying logs and metrics, replacing free-form strings to ensure validation and consistency.
+
+**Metric Queries**:
+- **Structure**: `MetricName`, `Aggregation` (sum, avg, etc.), `Filters` (label-based), `GroupBy`.
+- **Discovery**: Use `GET /metrics/describe` to find available metrics and their labels.
+- **Example**:
+  ```json
+  {
+    "expression": {
+      "metricName": "http_requests_total",
+      "aggregation": "sum",
+      "filters": [{"label": "status", "operator": "=", "value": "500"}]
+    }
+  }
+  ```
+
+**Log Queries**:
+- **Structure**: `Search` (text), `Filters` (field-based), `SeverityIn`.
+- **Example**:
+  ```json
+  {
+    "expression": {
+      "search": "connection timeout",
+      "severityIn": ["error", "critical"]
+    }
+  }
+  ```
+
 ### Adapter Architecture
 OpsOrch Core contains **no provider logic**.  
 Adapters implement capability interfaces in their own repos and register with the registry.
@@ -136,7 +182,7 @@ OpsOrch Core does not store operational data such as incidents or logs.
 It stores only:
 - encrypted integration configs  
 - minimal integration metadata  
-- optional audit logs  
+- optional audit logs (structured JSON with actions like `incident.created`, `incident.query`)  
 
 ### Secure Secret Management
 Supported:

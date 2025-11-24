@@ -54,7 +54,7 @@ func (s *Server) handleMessaging(w http.ResponseWriter, r *http.Request) bool {
 		writeProviderError(w, err)
 		return true
 	}
-	logMutatingAction(r, "send_message", "message", res.ID)
+	logAudit(r, "message.sent")
 	writeJSON(w, http.StatusOK, res)
 	return true
 }

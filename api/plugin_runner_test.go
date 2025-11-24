@@ -25,7 +25,7 @@ func TestPluginRunnerSurvivesContextCancel(t *testing.T) {
 
 	ctx1, cancel1 := context.WithCancel(context.Background())
 	var res1 []schema.Incident
-	if err := runner.call(ctx1, "incident.list", nil, &res1); err != nil {
+	if err := runner.call(ctx1, "incident.query", schema.IncidentQuery{}, &res1); err != nil {
 		t.Fatalf("first call: %v", err)
 	}
 	cancel1()
@@ -33,7 +33,7 @@ func TestPluginRunnerSurvivesContextCancel(t *testing.T) {
 	ctx2, cancel2 := context.WithCancel(context.Background())
 	defer cancel2()
 	var res2 []schema.Incident
-	if err := runner.call(ctx2, "incident.list", nil, &res2); err != nil {
+	if err := runner.call(ctx2, "incident.query", schema.IncidentQuery{}, &res2); err != nil {
 		t.Fatalf("second call after cancellation: %v", err)
 	}
 	if len(res2) == 0 || res2[0].ID != "p1" {

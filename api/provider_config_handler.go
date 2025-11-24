@@ -181,7 +181,7 @@ func (s *Server) handleProviderConfig(w http.ResponseWriter, r *http.Request) bo
 		return true
 	}
 
-	logMutatingAction(r, "configure_provider", "provider", capability)
+	logAudit(r, "provider.configured")
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	return true

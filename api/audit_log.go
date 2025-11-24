@@ -9,31 +9,28 @@ import (
 	"time"
 )
 
-// mutatingLogEntry captures structured details for mutating actions.
-type mutatingLogEntry struct {
-	ActorType  string    `json:"actor_type"`
-	ActorID    string    `json:"actor_id"`
-	Timestamp  time.Time `json:"timestamp"`
-	Action     string    `json:"action"`
-	TargetType string    `json:"target_type"`
-	TargetID   string    `json:"target_id"`
-	RequestID  string    `json:"request_id"`
+// AuditLogEntry captures structured details for audit actions.
+// Action is a dot-separated string, e.g. "incident.created", "incident.query".
+type AuditLogEntry struct {
+	RequestID string    `json:"request_id"`
+	ActorType string    `json:"actor_type"`
+	ActorID   string    `json:"actor_id"`
+	Timestamp time.Time `json:"timestamp"`
+	Action    string    `json:"action"`
 }
 
-func logMutatingAction(r *http.Request, action, targetType, targetID string) {
-	entry := mutatingLogEntry{
-		ActorType:  actorTypeFromRequest(r),
-		ActorID:    actorIDFromRequest(r),
-		Timestamp:  time.Now().UTC(),
-		Action:     action,
-		TargetType: targetType,
-		TargetID:   targetID,
-		RequestID:  requestIDFromRequest(r),
+func logAudit(r *http.Request, action string) {
+	entry := AuditLogEntry{
+		RequestID: requestIDFromRequest(r),
+		ActorType: actorTypeFromRequest(r),
+		ActorID:   actorIDFromRequest(r),
+		Timestamp: time.Now().UTC(),
+		Action:    action,
 	}
 
 	encoded, err := json.Marshal(entry)
 	if err != nil {
-		log.Printf("audit_log_error action=%s target_type=%s target_id=%s err=%v", action, targetType, targetID, err)
+		log.Printf("audit_log_error action=%s request_id=%s err=%v", action, entry.RequestID, err)
 		return
 	}
 

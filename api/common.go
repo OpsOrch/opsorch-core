@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 
 	"github.com/opsorch/opsorch-core/orcherr"
@@ -21,6 +22,7 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 }
 
 func writeError(w http.ResponseWriter, status int, err orcherr.OpsOrchError) {
+	log.Printf("API error (status=%d): code=%s, message=%s", status, err.Code, err.Message)
 	writeJSON(w, status, map[string]string{"code": err.Code, "message": err.Message})
 }
 
@@ -48,5 +50,7 @@ func writeProviderError(w http.ResponseWriter, err error) {
 		writeError(w, status, *oe)
 		return
 	}
-	writeError(w, http.StatusBadGateway, orcherr.OpsOrchError{Code: "provider_error", Message: "provider error"})
+	// If not an OpsOrchError, log the raw error and return a generic provider error with the actual error message
+	log.Printf("Provider error (non-OpsOrchError): %v", err)
+	writeError(w, http.StatusBadGateway, orcherr.OpsOrchError{Code: "provider_error", Message: err.Error()})
 }

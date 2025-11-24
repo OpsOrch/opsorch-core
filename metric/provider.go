@@ -10,6 +10,7 @@ import (
 // Provider defines the capability surface for metric adapters.
 type Provider interface {
 	Query(ctx context.Context, query schema.MetricQuery) ([]schema.MetricSeries, error)
+	Describe(ctx context.Context, scope schema.QueryScope) ([]schema.MetricDescriptor, error)
 }
 
 // ProviderConstructor builds a metric provider from decrypted configuration.

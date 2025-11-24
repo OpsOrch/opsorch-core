@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -41,5 +42,21 @@ func TestWriteProviderErrorPointer(t *testing.T) {
 	body := decodeBody(t, rr)
 	if body["code"] != "not_found" || body["message"] != "missing" {
 		t.Fatalf("unexpected body: %+v", body)
+	}
+}
+
+func TestWriteProviderErrorGeneric(t *testing.T) {
+	rr := httptest.NewRecorder()
+	writeProviderError(rr, errors.New("connection timeout"))
+
+	if rr.Code != http.StatusBadGateway {
+		t.Fatalf("expected status %d, got %d", http.StatusBadGateway, rr.Code)
+	}
+	body := decodeBody(t, rr)
+	if body["code"] != "provider_error" {
+		t.Fatalf("expected code 'provider_error', got %s", body["code"])
+	}
+	if body["message"] != "connection timeout" {
+		t.Fatalf("expected message 'connection timeout', got %s", body["message"])
 	}
 }

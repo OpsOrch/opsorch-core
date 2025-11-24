@@ -10,7 +10,6 @@ import (
 // Provider defines the capability surface an incident adapter must satisfy.
 type Provider interface {
 	Query(ctx context.Context, query schema.IncidentQuery) ([]schema.Incident, error)
-	List(ctx context.Context) ([]schema.Incident, error)
 	Get(ctx context.Context, id string) (schema.Incident, error)
 	Create(ctx context.Context, in schema.CreateIncidentInput) (schema.Incident, error)
 	Update(ctx context.Context, id string, in schema.UpdateIncidentInput) (schema.Incident, error)

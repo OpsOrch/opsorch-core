@@ -101,8 +101,6 @@ func main() {
 				res = res[:query.Limit]
 			}
 			writeOK(res)
-		case "incident.list":
-			writeOK(incidents)
 		case "incident.get":
 			var payload struct {
 				ID string `json:"id"`

@@ -14,6 +14,10 @@ func (stubMetricProvider) Query(ctx context.Context, q schema.MetricQuery) ([]sc
 	return []schema.MetricSeries{{Name: "cpu", Points: []schema.MetricPoint{{Timestamp: time.Now(), Value: 1}}}}, nil
 }
 
+func (stubMetricProvider) Describe(ctx context.Context, scope schema.QueryScope) ([]schema.MetricDescriptor, error) {
+	return []schema.MetricDescriptor{{Name: "cpu", Type: "gauge"}}, nil
+}
+
 func TestMetricRegisterLookup(t *testing.T) {
 	name := "test-metric"
 	ctor := func(cfg map[string]any) (Provider, error) { return stubMetricProvider{}, nil }

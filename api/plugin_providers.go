@@ -82,6 +82,11 @@ func (p metricPluginProvider) Query(ctx context.Context, query schema.MetricQuer
 	return res, p.runner.call(ctx, "metric.query", query, &res)
 }
 
+func (p metricPluginProvider) Describe(ctx context.Context, scope schema.QueryScope) ([]schema.MetricDescriptor, error) {
+	var res []schema.MetricDescriptor
+	return res, p.runner.call(ctx, "metric.describe", scope, &res)
+}
+
 // Ticket plugin provider ------------------------------------------------------
 
 type ticketPluginProvider struct {

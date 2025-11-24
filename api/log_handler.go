@@ -54,6 +54,7 @@ func (s *Server) handleLog(w http.ResponseWriter, r *http.Request) bool {
 		writeProviderError(w, err)
 		return true
 	}
+	logAudit(r, "log.query")
 	writeJSON(w, http.StatusOK, results)
 	return true
 }
