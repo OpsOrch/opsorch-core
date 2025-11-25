@@ -185,11 +185,37 @@ It stores only:
 - optional audit logs (structured JSON with actions like `incident.created`, `incident.query`)  
 
 ### Secure Secret Management
+OpsOrch loads integration credentials through the secret provider interface. Select a provider via `OPSORCH_SECRET_PROVIDER=<name>` and pass any constructor options in `OPSORCH_SECRET_CONFIG=<json>`.
+
 Supported:
 - HashiCorp Vault
 - AWS KMS
 - GCP/Azure KMS
 - Local AES-256-GCM
+- JSON file store (built in, local/dev convenience)
+
+#### JSON file provider (built in)
+The repo ships with a simple JSON-backed provider that is handy for demos and local development. Point the secret subsystem at a file that contains logical keys such as `providers/<capability>/default` and raw JSON strings for the stored configs:
+
+```json
+{
+  "providers/incident/default": "{\"provider\":\"incidentmock\",\"config\":{\"token\":\"abc\"}}",
+  "providers/log/default": "{\"provider\":\"logmock\",\"config\":{\"url\":\"http://localhost:9200\"}}"
+}
+```
+
+Start OpsOrch with environment variables pointing at that file:
+
+```bash
+OPSORCH_SECRET_PROVIDER=json OPSORCH_SECRET_CONFIG='{"path":"/tmp/opsorch-secrets.json"}' go run ./cmd/opsorch
+```
+
+The JSON provider keeps changes in memory only; edit the file yourself (or rebuild it) if you want to persist new configs across restarts.
+
+#### Applying capability configs
+Each capability can be configured in two ways:
+- **Environment variables at startup**: supply `OPSORCH_<CAP>_PROVIDER` and `OPSORCH_<CAP>_CONFIG` (and optionally `OPSORCH_<CAP>_PLUGIN`) every time you launch the server.
+- **Persisted configs via the secret store**: once a secret provider (such as the JSON file provider) is set, POST `{"provider":"name","config":{...}}` to `/providers/<capability>` and OpsOrch will persist that payload under the logical key `providers/<capability>/default`. Future restarts automatically reload the stored values, so setting the env vars again is optional.
 
 OpsOrch never returns secrets or logs them.
 
