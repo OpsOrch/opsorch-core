@@ -1,6 +1,6 @@
 # OpsOrch Core
 
-OpsOrch Core is a stateless, open-source orchestration layer that unifies incident, log, metric, dashboard, ticket, and messaging workflows behind a single, provider-agnostic API. 
+OpsOrch Core is a stateless, open-source orchestration layer that unifies incident, log, metric, ticket, and messaging workflows behind a single, provider-agnostic API. 
 It does not store operational data, and it does not include any built-in vendor integrations.  
 External adapters implement provider logic and are loaded dynamically by OpsOrch Core.
 
@@ -24,7 +24,7 @@ Adapters live in separate repos such as:
 
 OpsOrch Core never links vendor logic directly. Each capability is wired via an **in-process provider** that you import into the binary. The provider registers itself (e.g., `incident.RegisterProvider("pagerduty", pagerduty.New)`) and is selected with env `OPSORCH_<CAP>_PROVIDER`.
 
-Environment variables for any capability (`incident`, `log`, `metric`, `dashboard`, `ticket`, `messaging`, `secret`):
+Environment variables for any capability (`incident`, `log`, `metric`, `ticket`, `messaging`, `service`, `secret`):
 - `OPSORCH_<CAP>_PROVIDER=<registered name>`
 - `OPSORCH_<CAP>_CONFIG=<json>`
 
@@ -132,9 +132,9 @@ OpsOrch exposes API endpoints for:
 - Timelines
 - Logs
 - Metrics
-- Dashboards
 - Tickets
 - Messaging
+- Services
 
 Schemas live under `schema/` and evolve as the system matures.
 
@@ -185,9 +185,17 @@ It stores only:
 - optional audit logs (structured JSON with actions like `incident.created`, `incident.query`)  
 
 ### Secure Secret Management
-OpsOrch loads integration credentials through the secret provider interface. Select a provider via `OPSORCH_SECRET_PROVIDER=<name>` and pass any constructor options in `OPSORCH_SECRET_CONFIG=<json>`.
+OpsOrch loads integration credentials through the secret provider interface.
 
-Supported:
+#### Secret Provider Loading Priority
+The secret provider is loaded in the following order of precedence:
+1. **Plugin mode**: If `OPSORCH_SECRET_PLUGIN` is set, OpsOrch spawns that plugin binary (highest priority)
+2. **In-process provider**: If `OPSORCH_SECRET_PROVIDER` is set, OpsOrch uses the registered provider by that name
+3. **No secret provider**: If neither is set, the system runs without secret management (providers must be configured via environment variables only)
+
+Configuration is always passed via `OPSORCH_SECRET_CONFIG=<json>`.
+
+Supported providers:
 - HashiCorp Vault
 - AWS KMS
 - GCP/Azure KMS

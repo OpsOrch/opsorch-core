@@ -3,7 +3,7 @@
 This document explains how to build **external provider adapters** for OpsOrch Core.
 
 OpsOrch Core is a **stateless orchestration layer**.  
-It provides unified APIs, routing, secret management, and schema boundaries — but **does not define or enforce the exact shape of incidents, logs, metrics, dashboards, tickets, or messages**.
+It provides unified APIs, routing, secret management, and schema boundaries — but **does not define or enforce the exact shape of incidents, logs, metrics, tickets, or messages**.
 
 Those schemas will evolve during implementation.  
 Adapters must **conform to whatever schema is currently defined**, but this guide will not prescribe their structure.
@@ -26,7 +26,6 @@ opsorch-adapter-<provider>/
   incident/
   log/
   metric/
-  dashboard/
   ticket/
   messaging/
 ```
@@ -141,7 +140,6 @@ Adapters must normalize provider data into the **current schema version** of:
 - TimelineEntry
 - LogEntry
 - MetricSeries
-- DashboardView
 - Ticket
 - MessageResult
 
