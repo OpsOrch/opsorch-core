@@ -12,13 +12,11 @@ OpsOrch Core provides:
 - Routing and request orchestration
 
 Adapters live in separate repos such as:
-- opsorch-pagerduty-adapter
-- opsorch-incidentio-adapter
-- opsorch-prometheus-adapter
-- opsorch-elasticsearch-adapter
-- opsorch-grafana-adapter
-- opsorch-jira-adapter
-- opsorch-slack-adapter
+- [`opsorch-pagerduty-adapter`](https://github.com/OpsOrch/opsorch-pagerduty-adapter) - PagerDuty incidents and services
+- [`opsorch-jira-adapter`](https://github.com/OpsOrch/opsorch-jira-adapter) - Jira ticket management
+- [`opsorch-prometheus-adapter`](https://github.com/OpsOrch/opsorch-prometheus-adapter) - Prometheus metrics
+- [`opsorch-mock-adapters`](https://github.com/OpsOrch/opsorch-mock-adapters) - Demo/testing providers for all capabilities
+- [`opsorch-adapter`](https://github.com/OpsOrch/opsorch-adapter) - Starter template for new adapters
 
 ## Adapter Loading Model
 
