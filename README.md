@@ -91,6 +91,58 @@ If only one is provided the server will refuse to start.
 
 ### Docker image
 
+#### Using Published Images
+
+Pre-built multi-platform images are automatically published to GitHub Container Registry (GHCR) on every release:
+
+**Pull and run the latest core image:**
+```bash
+docker pull ghcr.io/opsorch/opsorch-core:latest
+docker run --rm -p 8080:8080 ghcr.io/opsorch/opsorch-core:latest
+```
+
+**Pull a specific version:**
+```bash
+docker pull ghcr.io/opsorch/opsorch-core:v0.1.0
+```
+
+**Use the image with mock plugins for testing:**
+```bash
+docker pull ghcr.io/opsorch/opsorch-core:latest-plugins
+docker run --rm -p 8080:8080 \
+  -e OPSORCH_INCIDENT_PLUGIN=/opt/opsorch/plugins/incidentmock \
+  -e OPSORCH_LOG_PLUGIN=/opt/opsorch/plugins/logmock \
+  -e OPSORCH_SECRET_PLUGIN=/opt/opsorch/plugins/secretmock \
+  ghcr.io/opsorch/opsorch-core:latest-plugins
+```
+
+Available image variants:
+- `ghcr.io/opsorch/opsorch-core:latest` - Latest core-only image (production ready)
+- `ghcr.io/opsorch/opsorch-core:latest-plugins` - Latest image with mock plugins (for testing)
+- `ghcr.io/opsorch/opsorch-core:v0.1.0` - Specific version, core only
+- `ghcr.io/opsorch/opsorch-core:v0.1.0-plugins` - Specific version with mock plugins
+
+#### Creating a Release
+
+Releases are automated via GitHub Actions. To create a new release:
+
+1. Go to the [Actions tab](https://github.com/OpsOrch/opsorch-core/actions)
+2. Select the "Release" workflow
+3. Click "Run workflow"
+4. Choose the version bump type:
+   - **patch** (default): Bug fixes, minor changes (e.g., `v0.1.0` → `v0.1.1`)
+   - **minor**: New features, backward compatible (e.g., `v0.1.0` → `v0.2.0`)
+   - **major**: Breaking changes (e.g., `v0.1.0` → `v1.0.0`)
+5. Click "Run workflow"
+
+The workflow will:
+- Run all tests and linting checks
+- Automatically calculate and create the new version tag
+- Build and push multi-platform Docker images to GHCR
+- Create a GitHub Release with changelog
+
+#### Building Locally
+
 A Dockerfile is provided that builds the core binary and bundles the mock adapter plugins at `/opt/opsorch/plugins`. You can also build a core-only base image and layer plugins later.
 
 Build an image (override `IMAGE` to change the tag; default is `opsorch-core:latest`).
