@@ -91,6 +91,45 @@ If only one is provided the server will refuse to start.
 
 ### Docker image
 
+#### Using Published Images
+
+Pre-built multi-platform Docker images (linux/amd64, linux/arm64) are automatically published to GitHub Container Registry (GHCR) on every release.
+
+**Pull and run the latest version:**
+```bash
+docker pull ghcr.io/opsorch/opsorch-core:latest
+docker run --rm -p 8080:8080 ghcr.io/opsorch/opsorch-core:latest
+```
+
+**Pull a specific version:**
+```bash
+docker pull ghcr.io/opsorch/opsorch-core:v0.1.0
+docker run --rm -p 8080:8080 ghcr.io/opsorch/opsorch-core:v0.1.0
+```
+
+Published images contain only the core binary (no bundled plugins). Load adapters via in-process providers or external plugin binaries as documented above.
+
+#### Creating a Release
+
+Releases are automated via GitHub Actions. To create a new release:
+
+1. Go to the [Actions tab](https://github.com/OpsOrch/opsorch-core/actions)
+2. Select the "Release" workflow
+3. Click "Run workflow"
+4. Choose the version bump type:
+   - **patch** (default): Bug fixes, minor changes (e.g., `v0.1.0` → `v0.1.1`)
+   - **minor**: New features, backward compatible (e.g., `v0.1.0` → `v0.2.0`)
+   - **major**: Breaking changes (e.g., `v0.1.0` → `v1.0.0`)
+5. Click "Run workflow"
+
+The workflow will:
+- Run all tests and linting checks
+- Automatically calculate and create the new version tag
+- Build and push multi-platform Docker images to GHCR
+- Create a GitHub Release with changelog
+
+#### Building Locally
+
 A Dockerfile is provided that builds the core binary and bundles the mock adapter plugins at `/opt/opsorch/plugins`. You can also build a core-only base image and layer plugins later.
 
 Build an image (override `IMAGE` to change the tag; default is `opsorch-core:latest`).
