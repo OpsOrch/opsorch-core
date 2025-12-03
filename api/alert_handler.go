@@ -21,8 +21,7 @@ func newAlertHandlerFromEnv(sec SecretProvider) (AlertHandler, error) {
 		return AlertHandler{}, err
 	}
 	if pluginPath != "" {
-		// Plugins not yet implemented for alerts, but structure is here
-		return AlertHandler{}, fmt.Errorf("alert plugins not yet supported")
+		return AlertHandler{provider: newAlertPluginProvider(pluginPath, cfg)}, nil
 	}
 	constructor, ok := alert.LookupProvider(name)
 	if !ok {

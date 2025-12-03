@@ -7,9 +7,9 @@ GOMODCACHE ?= $(PWD)/.gocache/mod
 CACHE_ENV = GOCACHE=$(GOCACHE) GOMODCACHE=$(GOMODCACHE)
 IMAGE ?= opsorch-core:latest
 PLUGINS ?= incidentmock logmock secretmock
-BASE_IMAGE ?= opsorch-core-base:latest
+MOCKS_IMAGE ?= opsorch-core-mocks:latest
 
-.PHONY: all fmt test tidy clean run build docker-build docker-build-base
+.PHONY: all fmt test tidy clean run build docker-build docker-build-mocks
 
 all: test
 
@@ -27,10 +27,10 @@ build:
 	$(CACHE_ENV) $(GO) build ./...
 
 docker-build:
-	docker build -t $(IMAGE) --build-arg PLUGINS="$(PLUGINS)" .
+	docker build -t $(IMAGE) --build-arg PLUGINS="" .
 
-docker-build-base:
-	docker build -t $(BASE_IMAGE) --target runtime-base .
+docker-build-mocks:
+	docker build -t $(MOCKS_IMAGE) --build-arg PLUGINS="$(PLUGINS)" .
 
 run:
 	$(CACHE_ENV) $(GO) run ./cmd/opsorch

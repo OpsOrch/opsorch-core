@@ -114,6 +114,7 @@ OpsOrch Core uses a registry to match capability + provider:
 ```go
 incident.RegisterProvider("pagerduty", pagerduty.New)
 incident.RegisterProvider("incidentio", incidentio.New)
+alert.RegisterProvider("prometheus", prometheus.New)
 ```
 
 Providers can be:
@@ -126,10 +127,28 @@ Providers can be:
 
 OpsOrch Core can launch a local adapter binary as a child process (no network hops) when `OPSORCH_<CAP>_PLUGIN` is set or the provider config includes a `plugin` path. RPC is JSON over stdin/stdout:
 
-- Request: `{ "method": "incident.query" | "log.query" | "metric.describe" | ..., "config": {...}, "payload": {...} }`
+- Request: `{ "method": "incident.query" | "alert.query" | "log.query" | "metric.describe" | ..., "config": {...}, "payload": {...} }`
 - Response: `{ "result": <value>, "error": "<msg>" }`
 
 The plugin process stays alive and receives multiple RPC calls on the same stdio stream.
+
+### Building Plugins
+
+To build a plugin, simply build the Go binary:
+
+```bash
+go build -o my-plugin ./cmd/my-plugin
+```
+
+### Using Plugins
+
+You can configure OpsOrch Core to use a plugin by setting the environment variable:
+
+```bash
+export OPSORCH_ALERT_PLUGIN=/path/to/my-plugin
+```
+
+Or by specifying the `plugin` path in the provider configuration.
 
 ---
 
@@ -519,7 +538,35 @@ return &Server{
 case s.handleAlert(w, r):
 ```
 
-#### 6. Update Capability Registry
+#### 6. Implement Plugin Provider
+
+**Modify** `api/plugin_providers.go`:
+
+1. Define the plugin provider struct:
+```go
+type alertPluginProvider struct {
+    runner *pluginRunner
+}
+
+func newAlertPluginProvider(path string, cfg map[string]any) alertPluginProvider {
+    return alertPluginProvider{runner: newPluginRunner(path, cfg)}
+}
+```
+
+2. Implement the provider interface methods, delegating to `runner.call`:
+```go
+func (p alertPluginProvider) Query(ctx context.Context, query schema.AlertQuery) ([]schema.Alert, error) {
+    var res []schema.Alert
+    return res, p.runner.call(ctx, "alert.query", query, &res)
+}
+
+func (p alertPluginProvider) Get(ctx context.Context, id string) (schema.Alert, error) {
+    var res schema.Alert
+    return res, p.runner.call(ctx, "alert.get", map[string]any{"id": id}, &res)
+}
+```
+
+#### 7. Update Capability Registry
 
 **Modify** `api/capability.go` - Add capability normalization:
 
@@ -553,7 +600,7 @@ func (s *Server) handleProviders(w http.ResponseWriter, r *http.Request) bool {
 }
 ```
 
-#### 7. Add API Tests
+#### 8. Add API Tests
 
 **Modify** `api/server_test.go`:
 
@@ -630,7 +677,7 @@ cases := []struct {
 }
 ```
 
-#### 8. Update Documentation
+#### 9. Update Documentation
 
 **Modify** `README.md`:
 
@@ -659,6 +706,7 @@ curl -s -X POST http://localhost:8080/alerts/query -d '{}'
 - [ ] Provider tests in `<capability>/provider_test.go`
 - [ ] API handler in `api/<capability>_handler.go`
 - [ ] Server wired up in `api/server.go`
+- [ ] Plugin provider in `api/plugin_providers.go`
 - [ ] Capability normalized in `api/capability.go`
 - [ ] Provider listing in `api/providers.go`
 - [ ] API tests in `api/server_test.go`

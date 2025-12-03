@@ -306,17 +306,187 @@ VAULT_TOKEN=xxxx
 VAULT_TRANSIT_KEY=opsorch
 ```
 
-## Creating an Adapter
+## Extending OpsOrch
 
-See `agent.md` for the full guide.
+### 1. Creating a New Adapter
 
-Summary:
+To build a new adapter for an existing capability (e.g., a new Incident provider):
+
 1. Create a repo `opsorch-adapter-<provider>`
-2. `go get github.com/opsorch/opsorch-core`
-3. Implement capability interfaces
-4. Export constructor `New(config map[string]any)`
-5. Register provider
-6. Add tests
+2. Add dependency:
+   ```bash
+   go get github.com/opsorch/opsorch-core
+   ```
+3. Implement capability interfaces relevant to the provider
+4. Map provider responses → current OpsOrch schemas
+5. Add unit tests
+6. Add provider usage docs
+7. Ensure the adapter registers itself with the right provider name
+
+See [AGENTS.md](AGENTS.md) for detailed interface definitions and normalization rules.
+
+### 2. Adding a New Capability to OpsOrch Core
+
+This section explains how to add a new capability (like `alert`, `dashboard`, etc.) to OpsOrch Core itself.
+
+#### Prerequisites
+- The capability has a clear, distinct purpose from existing capabilities
+- You understand the provider pattern (read-only vs read-write)
+- You have identified common fields across major providers in this domain
+
+#### Step-by-Step Guide
+
+**1. Define the Schema**
+
+Create schema file: `schema/<capability>.go`
+
+```go
+package schema
+
+import "time"
+
+// AlertQuery filters normalized alerts from the active alert provider.
+type AlertQuery struct {
+    Query      string         `json:"query,omitempty"`
+    Statuses   []string       `json:"statuses,omitempty"`
+    Severities []string       `json:"severities,omitempty"`
+    Scope      QueryScope     `json:"scope,omitempty"`
+    Limit      int            `json:"limit,omitempty"`
+    Metadata   map[string]any `json:"metadata,omitempty"`
+}
+
+// Alert captures the normalized alert shape.
+type Alert struct {
+    ID          string         `json:"id"`
+    Title       string         `json:"title"`
+    Description string         `json:"description,omitempty"`
+    Status      string         `json:"status"`
+    Severity    string         `json:"severity"`
+    Service     string         `json:"service,omitempty"`
+    CreatedAt   time.Time      `json:"createdAt"`
+    UpdatedAt   time.Time      `json:"updatedAt"`
+    Fields      map[string]any `json:"fields,omitempty"`
+    Metadata    map[string]any `json:"metadata,omitempty"`
+}
+```
+
+**2. Define the Provider Interface**
+
+Create provider file: `<capability>/provider.go`
+
+```go
+package alert
+
+import (
+    "context"
+    "github.com/opsorch/opsorch-core/registry"
+    "github.com/opsorch/opsorch-core/schema"
+)
+
+// Provider defines the capability surface an alert adapter must satisfy.
+type Provider interface {
+    Query(ctx context.Context, query schema.AlertQuery) ([]schema.Alert, error)
+    Get(ctx context.Context, id string) (schema.Alert, error)
+}
+
+// ProviderConstructor builds a Provider instance from decrypted config.
+type ProviderConstructor func(config map[string]any) (Provider, error)
+
+var providers = registry.New[ProviderConstructor]()
+
+// RegisterProvider adds a provider constructor.
+func RegisterProvider(name string, constructor ProviderConstructor) error {
+    return providers.Register(name, constructor)
+}
+
+// LookupProvider returns a named provider constructor if registered.
+func LookupProvider(name string) (ProviderConstructor, bool) {
+    return providers.Get(name)
+}
+
+// Providers lists all registered provider names.
+func Providers() []string {
+    return providers.Names()
+}
+```
+
+**3. Create API Handler**
+
+Create handler file: `api/<capability>_handler.go`
+
+```go
+package api
+
+import (
+    "fmt"
+    "net/http"
+    "strings"
+    "github.com/opsorch/opsorch-core/alert"
+    "github.com/opsorch/opsorch-core/orcherr"
+    "github.com/opsorch/opsorch-core/schema"
+)
+
+// AlertHandler wraps provider wiring for alerts.
+type AlertHandler struct {
+    provider alert.Provider
+}
+
+func newAlertHandlerFromEnv(sec SecretProvider) (AlertHandler, error) {
+    name, cfg, pluginPath, err := loadProviderConfig(sec, "alert", "OPSORCH_ALERT_PROVIDER", "OPSORCH_ALERT_CONFIG", "OPSORCH_ALERT_PLUGIN")
+    if err != nil || (name == "" && pluginPath == "") {
+        return AlertHandler{}, err
+    }
+    if pluginPath != "" {
+        return AlertHandler{provider: newAlertPluginProvider(pluginPath, cfg)}, nil
+    }
+    constructor, ok := alert.LookupProvider(name)
+    if !ok {
+        return AlertHandler{}, fmt.Errorf("alert provider %s not registered", name)
+    }
+    provider, err := constructor(cfg)
+    if err != nil {
+        return AlertHandler{}, err
+    }
+    return AlertHandler{provider: provider}, nil
+}
+
+func (s *Server) handleAlert(w http.ResponseWriter, r *http.Request) bool {
+    // ... implementation ...
+}
+```
+
+**4. Wire Up the Server**
+
+Modify `api/server.go` to add the handler field, initialize it in `NewServerFromEnv`, and dispatch in `ServeHTTP`.
+
+**5. Implement Plugin Provider**
+
+Modify `api/plugin_providers.go`:
+
+1. Define the plugin provider struct:
+```go
+type alertPluginProvider struct {
+    runner *pluginRunner
+}
+
+func newAlertPluginProvider(path string, cfg map[string]any) alertPluginProvider {
+    return alertPluginProvider{runner: newPluginRunner(path, cfg)}
+}
+```
+
+2. Implement the provider interface methods, delegating to `runner.call`.
+
+**6. Update Capability Registry**
+
+Modify `api/capability.go` to add capability normalization, and `api/providers.go` to add provider listing.
+
+**7. Add API Tests**
+
+Add tests in `api/server_test.go`.
+
+**8. Update Documentation**
+
+Update `README.md` to list the new capability and endpoints.
 
 ## License
 Apache 2.0

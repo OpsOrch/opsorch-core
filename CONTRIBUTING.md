@@ -25,7 +25,7 @@ If you want to contribute an adapter, create a repo named:
 opsorch-adapter-<provider>
 ```
 
-Follow the guide in `agent.md`.
+Follow the guide in `README.md`.
 
 ### 3. Coding Standards
 - Go 1.22+

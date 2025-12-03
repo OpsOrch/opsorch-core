@@ -6,6 +6,26 @@ import (
 	"github.com/opsorch/opsorch-core/schema"
 )
 
+// Alert plugin provider -------------------------------------------------------
+
+type alertPluginProvider struct {
+	runner *pluginRunner
+}
+
+func newAlertPluginProvider(path string, cfg map[string]any) alertPluginProvider {
+	return alertPluginProvider{runner: newPluginRunner(path, cfg)}
+}
+
+func (p alertPluginProvider) Query(ctx context.Context, query schema.AlertQuery) ([]schema.Alert, error) {
+	var res []schema.Alert
+	return res, p.runner.call(ctx, "alert.query", query, &res)
+}
+
+func (p alertPluginProvider) Get(ctx context.Context, id string) (schema.Alert, error) {
+	var res schema.Alert
+	return res, p.runner.call(ctx, "alert.get", map[string]any{"id": id}, &res)
+}
+
 // Incident plugin provider ----------------------------------------------------
 
 type incidentPluginProvider struct {
