@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/opsorch/opsorch-core/alert"
 	"github.com/opsorch/opsorch-core/incident"
 	"github.com/opsorch/opsorch-core/log"
 	"github.com/opsorch/opsorch-core/messaging"
@@ -31,6 +32,8 @@ func (s *Server) handleProviders(w http.ResponseWriter, r *http.Request) bool {
 	switch capability {
 	case "incident":
 		providers = incident.Providers()
+	case "alert":
+		providers = alert.Providers()
 	case "log":
 		providers = log.Providers()
 	case "metric":

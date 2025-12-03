@@ -17,6 +17,7 @@ type Server struct {
 	serve       func(*http.Server) error                 // optional override for tests
 	serveTLS    func(*http.Server, string, string) error // optional override for tests
 	incident    IncidentHandler
+	alert       AlertHandler
 	log         LogHandler
 	metric      MetricHandler
 	ticket      TicketHandler
@@ -45,6 +46,10 @@ func NewServerFromEnv(ctx context.Context) (*Server, error) {
 	}
 
 	inc, err := newIncidentHandlerFromEnv(sec)
+	if err != nil {
+		return nil, err
+	}
+	al, err := newAlertHandlerFromEnv(sec)
 	if err != nil {
 		return nil, err
 	}
@@ -77,6 +82,7 @@ func NewServerFromEnv(ctx context.Context) (*Server, error) {
 		tlsCertFile: tlsCertFile,
 		tlsKeyFile:  tlsKeyFile,
 		incident:    inc,
+		alert:       al,
 		log:         lg,
 		metric:      mt,
 		ticket:      tk,
@@ -117,6 +123,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case s.handleProviders(w, r):
 	case s.handleProviderConfig(w, r):
 	case s.handleIncident(w, r):
+	case s.handleAlert(w, r):
 	case s.handleLog(w, r):
 	case s.handleMetric(w, r):
 	case s.handleTicket(w, r):

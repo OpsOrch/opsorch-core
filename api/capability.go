@@ -7,6 +7,8 @@ func normalizeCapability(name string) (string, bool) {
 	switch strings.ToLower(name) {
 	case "incident", "incidents":
 		return "incident", true
+	case "alert", "alerts":
+		return "alert", true
 	case "log", "logs":
 		return "log", true
 	case "metric", "metrics":

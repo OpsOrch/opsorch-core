@@ -22,7 +22,7 @@ Adapters live in separate repos such as:
 
 OpsOrch Core never links vendor logic directly. Each capability is wired via an **in-process provider** that you import into the binary. The provider registers itself (e.g., `incident.RegisterProvider("pagerduty", pagerduty.New)`) and is selected with env `OPSORCH_<CAP>_PROVIDER`.
 
-Environment variables for any capability (`incident`, `log`, `metric`, `ticket`, `messaging`, `service`, `secret`):
+Environment variables for any capability (`incident`, `alert`, `log`, `metric`, `ticket`, `messaging`, `service`, `secret`):
 - `OPSORCH_<CAP>_PROVIDER=<registered name>`
 - `OPSORCH_<CAP>_CONFIG=<json>`
 
@@ -61,6 +61,9 @@ curl -s -X POST http://localhost:8080/incidents \
   -H "Content-Type: application/json" \
   -d '{"title":"test","status":"open","severity":"sev3"}'
   -d '{"title":"test","status":"open","severity":"sev3"}'
+
+# Query Alerts
+curl -s -X POST http://localhost:8080/alerts/query -d '{}'
 
 # Query Metrics
 curl -s -X POST http://localhost:8080/metrics/query \
@@ -166,6 +169,7 @@ To bundle your own plugins, add their source under `plugins/<name>` (or vendor t
 ### Unified API Layer
 OpsOrch exposes API endpoints for:
 - Incidents
+- Alerts
 - Timelines
 - Logs
 - Metrics

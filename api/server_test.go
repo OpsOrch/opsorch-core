@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/opsorch/opsorch-core/alert"
 	"github.com/opsorch/opsorch-core/incident"
 	"github.com/opsorch/opsorch-core/log"
 	"github.com/opsorch/opsorch-core/schema"
@@ -56,6 +57,20 @@ func derefString(s *string, fallback string) string {
 		return fallback
 	}
 	return *s
+}
+
+type stubAlertProvider struct{}
+
+func (s stubAlertProvider) Query(ctx context.Context, query schema.AlertQuery) ([]schema.Alert, error) {
+	res := []schema.Alert{{ID: "a1", Title: "test alert", Status: "firing", Severity: "critical", CreatedAt: time.Now(), UpdatedAt: time.Now()}}
+	if query.Limit > 0 && query.Limit < len(res) {
+		return res[:query.Limit], nil
+	}
+	return res, nil
+}
+
+func (s stubAlertProvider) Get(ctx context.Context, id string) (schema.Alert, error) {
+	return schema.Alert{ID: id, Title: "test alert", Status: "firing", Severity: "critical", CreatedAt: time.Now(), UpdatedAt: time.Now()}, nil
 }
 
 type stubLogProvider struct{}
@@ -541,6 +556,7 @@ func TestMissingProvidersReturn501(t *testing.T) {
 		method string
 		url    string
 	}{
+		{"alert", &Server{alert: AlertHandler{}}, http.MethodPost, "/alerts/query"},
 		{"log", &Server{log: LogHandler{}}, http.MethodPost, "/logs/query"},
 		{"metric", &Server{metric: MetricHandler{}}, http.MethodPost, "/metrics/query"},
 		{"ticket", &Server{ticket: TicketHandler{}}, http.MethodPost, "/tickets"},
@@ -598,6 +614,90 @@ func TestProvidersListIncludesService(t *testing.T) {
 
 	srv := &Server{}
 	req := httptest.NewRequest(http.MethodGet, "/providers/service", nil)
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	var out map[string][]string
+	if err := json.NewDecoder(w.Body).Decode(&out); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	providers := out["providers"]
+	found := false
+	for _, p := range providers {
+		if strings.EqualFold(p, name) {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected provider %s in list, got %v", name, providers)
+	}
+}
+
+func TestAlertQuery(t *testing.T) {
+	srv := &Server{alert: AlertHandler{provider: stubAlertProvider{}}, corsOrigin: "*"}
+	body, _ := json.Marshal(schema.AlertQuery{Limit: 1})
+	req := httptest.NewRequest(http.MethodPost, "/alerts/query", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+
+	srv.ServeHTTP(w, req)
+
+	res := w.Result()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", res.StatusCode)
+	}
+	var out []schema.Alert
+	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(out) != 1 || out[0].ID != "a1" {
+		t.Fatalf("unexpected alert response: %+v", out)
+	}
+}
+
+func TestAlertGet(t *testing.T) {
+	srv := &Server{alert: AlertHandler{provider: stubAlertProvider{}}, corsOrigin: "*"}
+	req := httptest.NewRequest(http.MethodGet, "/alerts/abc", nil)
+	w := httptest.NewRecorder()
+
+	srv.ServeHTTP(w, req)
+
+	res := w.Result()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", res.StatusCode)
+	}
+	var out schema.Alert
+	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if out.ID != "abc" {
+		t.Fatalf("unexpected alert ID: %s", out.ID)
+	}
+}
+
+func TestAlertMissingProvider(t *testing.T) {
+	srv := &Server{}
+	req := httptest.NewRequest(http.MethodGet, "/alerts", nil)
+	w := httptest.NewRecorder()
+
+	srv.ServeHTTP(w, req)
+
+	if status := w.Result().StatusCode; status != http.StatusNotImplemented {
+		t.Fatalf("expected 501 when provider missing, got %d", status)
+	}
+}
+
+func TestAlertProviderListing(t *testing.T) {
+	name := "test-alert-listing"
+	if err := alert.RegisterProvider(name, func(cfg map[string]any) (alert.Provider, error) { return stubAlertProvider{}, nil }); err != nil && !strings.Contains(err.Error(), "already registered") {
+		t.Fatalf("register alert provider: %v", err)
+	}
+
+	srv := &Server{}
+	req := httptest.NewRequest(http.MethodGet, "/providers/alert", nil)
 	w := httptest.NewRecorder()
 	srv.ServeHTTP(w, req)
 

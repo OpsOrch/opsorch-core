@@ -27,35 +27,38 @@ type IncidentQuery struct {
 
 // Incident captures the normalized incident shape for the current schema revision.
 type Incident struct {
-	ID        string         `json:"id"`
-	Title     string         `json:"title"`
-	Status    string         `json:"status"`
-	Severity  string         `json:"severity"`
-	Service   string         `json:"service,omitempty"`
-	CreatedAt time.Time      `json:"createdAt"`
-	UpdatedAt time.Time      `json:"updatedAt"`
-	Fields    map[string]any `json:"fields,omitempty"`
-	Metadata  map[string]any `json:"metadata,omitempty"`
+	ID          string         `json:"id"`
+	Title       string         `json:"title"`
+	Description string         `json:"description,omitempty"`
+	Status      string         `json:"status"`
+	Severity    string         `json:"severity"`
+	Service     string         `json:"service,omitempty"`
+	CreatedAt   time.Time      `json:"createdAt"`
+	UpdatedAt   time.Time      `json:"updatedAt"`
+	Fields      map[string]any `json:"fields,omitempty"`
+	Metadata    map[string]any `json:"metadata,omitempty"`
 }
 
 // CreateIncidentInput is the provider-agnostic payload for creating an incident.
 type CreateIncidentInput struct {
-	Title    string         `json:"title"`
-	Status   string         `json:"status"`
-	Severity string         `json:"severity"`
-	Service  string         `json:"service,omitempty"`
-	Fields   map[string]any `json:"fields,omitempty"`
-	Metadata map[string]any `json:"metadata,omitempty"`
+	Title       string         `json:"title"`
+	Description string         `json:"description,omitempty"`
+	Status      string         `json:"status"`
+	Severity    string         `json:"severity"`
+	Service     string         `json:"service,omitempty"`
+	Fields      map[string]any `json:"fields,omitempty"`
+	Metadata    map[string]any `json:"metadata,omitempty"`
 }
 
 // UpdateIncidentInput defines mutable fields on an incident.
 type UpdateIncidentInput struct {
-	Title    *string        `json:"title,omitempty"`
-	Status   *string        `json:"status,omitempty"`
-	Severity *string        `json:"severity,omitempty"`
-	Service  *string        `json:"service,omitempty"`
-	Fields   map[string]any `json:"fields,omitempty"`
-	Metadata map[string]any `json:"metadata,omitempty"`
+	Title       *string        `json:"title,omitempty"`
+	Description *string        `json:"description,omitempty"`
+	Status      *string        `json:"status,omitempty"`
+	Severity    *string        `json:"severity,omitempty"`
+	Service     *string        `json:"service,omitempty"`
+	Fields      map[string]any `json:"fields,omitempty"`
+	Metadata    map[string]any `json:"metadata,omitempty"`
 }
 
 // TimelineEntry represents a single entry on an incident timeline.
