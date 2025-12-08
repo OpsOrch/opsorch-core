@@ -1,5 +1,10 @@
 # OpsOrch Core
 
+[![Version](https://img.shields.io/github/v/release/opsorch/opsorch-core)](https://github.com/opsorch/opsorch-core/releases)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/opsorch/opsorch-core)](https://github.com/opsorch/opsorch-core/blob/main/go.mod)
+[![License](https://img.shields.io/github/license/opsorch/opsorch-core)](https://github.com/opsorch/opsorch-core/blob/main/LICENSE)
+[![CI](https://github.com/opsorch/opsorch-core/workflows/CI/badge.svg)](https://github.com/opsorch/opsorch-core/actions)
+
 OpsOrch Core is a stateless, open-source orchestration layer that unifies incident, log, metric, ticket, and messaging workflows behind a single, provider-agnostic API. 
 It does not store operational data, and it does not include any built-in vendor integrations.  
 External adapters implement provider logic and are loaded dynamically by OpsOrch Core.
@@ -20,11 +25,14 @@ Adapters live in separate repos such as:
 
 ## Adapter Loading Model
 
-OpsOrch Core never links vendor logic directly. Each capability is wired via an **in-process provider** that you import into the binary. The provider registers itself (e.g., `incident.RegisterProvider("pagerduty", pagerduty.New)`) and is selected with env `OPSORCH_<CAP>_PROVIDER`.
+OpsOrch Core never links vendor logic directly. Each capability is resolved at runtime by either importing an **in-process provider** (Go package that registers itself) or by launching a **local plugin binary** that speaks OpsOrch's stdio RPC protocol. At startup OpsOrch checks for environment overrides first, then falls back to any persisted configuration stored via the secret provider.
 
 Environment variables for any capability (`incident`, `alert`, `log`, `metric`, `ticket`, `messaging`, `service`, `secret`):
-- `OPSORCH_<CAP>_PROVIDER=<registered name>`
-- `OPSORCH_<CAP>_CONFIG=<json>`
+- `OPSORCH_<CAP>_PROVIDER=<registered name>` – name passed to the corresponding registry
+- `OPSORCH_<CAP>_CONFIG=<json>` – decrypted config map forwarded to the constructor
+- `OPSORCH_<CAP>_PLUGIN=/path/to/binary` – optional local plugin that overrides `OPSORCH_<CAP>_PROVIDER`
+
+Send `GET /providers/<capability>` to list the providers registered in the current binary (plugins do not appear here because they are external binaries).
 
 ### Using an in-process provider
 1) Add the adapter dependency to the core binary you are building:
@@ -47,25 +55,40 @@ OPSORCH_LOG_PROVIDER=elasticsearch OPSORCH_LOG_CONFIG='{"url":"http://..."}' \
 go run ./cmd/opsorch
 ```
 
-### Quick start: run locally and curl
+### Using a local plugin
 
-Run the server (defaults to :8080) with a registered provider and its config:
+Plugins are plain Go binaries that OpsOrch launches as child processes. Build the plugin, point `OPSORCH_<CAP>_PLUGIN` at the resulting binary, and OpsOrch streams JSON RPC requests over stdin/stdout. The plugin receives the same decrypted config map that a Go provider would.
+
 ```bash
-OPSORCH_INCIDENT_PROVIDER=<registered> OPSORCH_INCIDENT_CONFIG='{"token":"..."}' go run ./cmd/opsorch
+go build -o ./bin/incidentmock ./plugins/incidentmock
+
+OPSORCH_INCIDENT_PLUGIN=$(pwd)/bin/incidentmock \
+OPSORCH_INCIDENT_CONFIG='{"token":"demo"}' \
+go run ./cmd/opsorch
 ```
 
-Hit the API:
+### Quick start: run locally and curl
+
+Start OpsOrch with at least one provider or plugin configured (see the sections above). The `OPSORCH_ADDR` env var defaults to `:8080`; set `OPSORCH_BEARER_TOKEN` to require a `Bearer <token>` header on every request. Every capability that is not configured responds with HTTP 501 and a `<capability>_provider_missing` error.
+
 ```bash
+# Query Incidents
 curl -s -X POST http://localhost:8080/incidents/query -d '{}'
+
+# Create an Incident
 curl -s -X POST http://localhost:8080/incidents \
   -H "Content-Type: application/json" \
   -d '{"title":"test","status":"open","severity":"sev3"}'
-  -d '{"title":"test","status":"open","severity":"sev3"}'
 
-# Query Alerts
+# Append to a timeline entry
+curl -s -X POST http://localhost:8080/incidents/p1/timeline \
+  -H "Content-Type: application/json" \
+  -d '{"kind":"note","body":"from OpsOrch"}'
+
+# Query Alerts (requires alert provider)
 curl -s -X POST http://localhost:8080/alerts/query -d '{}'
 
-# Query Metrics
+# Query Metrics (requires metric provider)
 curl -s -X POST http://localhost:8080/metrics/query \
   -H "Content-Type: application/json" \
   -d '{
@@ -78,9 +101,11 @@ curl -s -X POST http://localhost:8080/metrics/query \
     "step": 60
   }'
 
-# Discover Metrics
+# Discover Metrics (requires metric provider)
 curl -s "http://localhost:8080/metrics/describe?service=api"
 ```
+
+Add `-H "Authorization: Bearer <token>"` to each curl when `OPSORCH_BEARER_TOKEN` is set.
 
 ### TLS
 
@@ -91,6 +116,12 @@ OPSORCH_TLS_CERT_FILE=/path/to/server.crt OPSORCH_TLS_KEY_FILE=/path/to/server.k
 ```
 
 If only one is provided the server will refuse to start.
+
+### Runtime environment
+
+- `OPSORCH_ADDR` (default `:8080`) controls the listen address for the HTTP server.
+- `OPSORCH_CORS_ORIGIN` (default `*`) defines the value that is echoed in `Access-Control-Allow-Origin`.
+- `OPSORCH_BEARER_TOKEN` enables a simple bearer token requirement for all HTTP requests.
 
 ### Docker image
 
@@ -133,22 +164,22 @@ The workflow will:
 
 #### Building Locally
 
-A Dockerfile is provided that builds the core binary and bundles the mock adapter plugins at `/opt/opsorch/plugins`. You can also build a core-only base image and layer plugins later.
+The Dockerfile builds the core binary and, when requested, bundles plugin binaries under `/opt/opsorch/plugins`.
 
-Build an image (override `IMAGE` to change the tag; default is `opsorch-core:latest`).
-The `PLUGINS` build arg controls which plugin directories under `./plugins` are built and bundled (defaults to `incidentmock logmock secretmock`).
+- Core-only image (no plugins bundled):
+  ```bash
+  make docker-build IMAGE=opsorch-core:dev
+  ```
+- Image with bundled mock plugins (override `MOCKS_IMAGE` or `PLUGINS` as needed):
+  ```bash
+  make docker-build-mocks MOCKS_IMAGE=opsorch-core-mocks:dev PLUGINS="incidentmock logmock secretmock"
+  ```
+- Manual build with specific plugins (uses the Dockerfile default of `incidentmock logmock secretmock` when `--build-arg PLUGINS` is omitted):
+  ```bash
+  docker build -t opsorch-core:dev --build-arg PLUGINS="incidentmock logmock secretmock" .
+  ```
 
-```bash
-make docker-build IMAGE=opsorch-core:dev PLUGINS="incidentmock logmock secretmock"
-```
-
-Build a core-only base image (no plugins included):
-
-```bash
-make docker-build-base BASE_IMAGE=opsorch-core-base:dev
-```
-
-Run with the packaged plugin binaries:
+Run a plugin-enabled image by pointing `OPSORCH_<CAP>_PLUGIN` at the bundled binaries:
 
 ```bash
 docker run --rm -p 8080:8080 \
@@ -158,11 +189,7 @@ docker run --rm -p 8080:8080 \
   opsorch-core:dev
 ```
 
-If you built without overriding `IMAGE`, run with `opsorch-core:latest` instead of `opsorch-core:dev`.
-
-Mount or copy additional adapter binaries and point `OPSORCH_<CAP>_PLUGIN` env vars at them to swap providers.
-
-To bundle your own plugins, add their source under `plugins/<name>` (or vendor them in), then include them in `PLUGINS` when building: `make docker-build PLUGINS="incidentmock logmock secretmock myprovider"`.
+Mount or copy additional adapter binaries into the container and update `OPSORCH_<CAP>_PLUGIN` to swap providers. To bundle your own plugins, add their sources under `plugins/<name>` (or vendor them in) and include them in the `PLUGINS` build arg.
 
 ## Key Concepts
 
@@ -237,11 +264,8 @@ The secret provider is loaded in the following order of precedence:
 Configuration is always passed via `OPSORCH_SECRET_CONFIG=<json>`.
 
 Supported providers:
-- HashiCorp Vault
-- AWS KMS
-- GCP/Azure KMS
-- Local AES-256-GCM
-- JSON file store (built in, local/dev convenience)
+- JSON file store (`json`) – built in for local/dev convenience.
+- Any custom provider you import into the binary or expose via `OPSORCH_SECRET_PLUGIN`.
 
 #### JSON file provider (built in)
 The repo ships with a simple JSON-backed provider that is handy for demos and local development. Point the secret subsystem at a file that contains logical keys such as `providers/<capability>/default` and raw JSON strings for the stored configs:
@@ -264,7 +288,7 @@ The JSON provider keeps changes in memory only; edit the file yourself (or rebui
 #### Applying capability configs
 Each capability can be configured in two ways:
 - **Environment variables at startup**: supply `OPSORCH_<CAP>_PROVIDER` and `OPSORCH_<CAP>_CONFIG` (and optionally `OPSORCH_<CAP>_PLUGIN`) every time you launch the server.
-- **Persisted configs via the secret store**: once a secret provider (such as the JSON file provider) is set, POST `{"provider":"name","config":{...}}` to `/providers/<capability>` and OpsOrch will persist that payload under the logical key `providers/<capability>/default`. Future restarts automatically reload the stored values, so setting the env vars again is optional.
+- **Persisted configs via the secret store**: once a secret provider (such as the JSON file provider) is set, POST `{"provider":"name","config":{...},"plugin":"/path/to/binary"}` to `/providers/<capability>` and OpsOrch will persist that payload under the logical key `providers/<capability>/default`. `plugin` is optional but `provider` is still required even when you only want to run a plugin. Future restarts automatically reload the stored values, so setting the env vars again is optional.
 
 OpsOrch never returns secrets or logs them.
 
@@ -293,17 +317,25 @@ OpsOrch never returns secrets or logs them.
 ```bash
 git clone https://github.com/opsorch/opsorch-core
 cd opsorch-core
-make build
-./opsorch
+make test
+go build -o ./bin/opsorch ./cmd/opsorch
+./bin/opsorch
 ```
 
 ## Configuration
 
-```
-SECRET_BACKEND=vault|kms|local
-VAULT_ADDR=http://127.0.0.1:8200
-VAULT_TOKEN=xxxx
-VAULT_TRANSIT_KEY=opsorch
+OpsOrch is configured entirely via environment variables. Combine the capability-specific env vars with optional server settings:
+
+```bash
+OPSORCH_ADDR=:8080
+OPSORCH_CORS_ORIGIN=http://localhost:3000
+OPSORCH_BEARER_TOKEN=local-dev
+
+OPSORCH_SECRET_PROVIDER=json
+OPSORCH_SECRET_CONFIG='{"path":"/tmp/opsorch-secrets.json"}'
+
+OPSORCH_INCIDENT_PLUGIN=/opt/opsorch/plugins/incidentmock
+OPSORCH_INCIDENT_CONFIG='{"token":"demo"}'
 ```
 
 ## Extending OpsOrch
