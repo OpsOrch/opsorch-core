@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/github/license/opsorch/opsorch-core)](https://github.com/opsorch/opsorch-core/blob/main/LICENSE)
 [![CI](https://github.com/opsorch/opsorch-core/workflows/CI/badge.svg)](https://github.com/opsorch/opsorch-core/actions)
 
-OpsOrch Core is a stateless, open-source orchestration layer that unifies incident, log, metric, ticket, and messaging workflows behind a single, provider-agnostic API. 
+OpsOrch Core is a stateless, open-source orchestration layer that unifies incident, log, metric, ticket, messaging, and deployment workflows behind a single, provider-agnostic API. 
 It does not store operational data, and it does not include any built-in vendor integrations.  
 External adapters implement provider logic and are loaded dynamically by OpsOrch Core.
 
@@ -27,7 +27,7 @@ Adapters live in separate repos such as:
 
 OpsOrch Core never links vendor logic directly. Each capability is resolved at runtime by either importing an **in-process provider** (Go package that registers itself) or by launching a **local plugin binary** that speaks OpsOrch's stdio RPC protocol. At startup OpsOrch checks for environment overrides first, then falls back to any persisted configuration stored via the secret provider.
 
-Environment variables for any capability (`incident`, `alert`, `log`, `metric`, `ticket`, `messaging`, `service`, `secret`):
+Environment variables for any capability (`incident`, `alert`, `log`, `metric`, `ticket`, `messaging`, `service`, `deployment`, `secret`):
 - `OPSORCH_<CAP>_PROVIDER=<registered name>` – name passed to the corresponding registry
 - `OPSORCH_<CAP>_CONFIG=<json>` – decrypted config map forwarded to the constructor
 - `OPSORCH_<CAP>_PLUGIN=/path/to/binary` – optional local plugin that overrides `OPSORCH_<CAP>_PROVIDER`
@@ -103,6 +103,21 @@ curl -s -X POST http://localhost:8080/metrics/query \
 
 # Discover Metrics (requires metric provider)
 curl -s "http://localhost:8080/metrics/describe?service=api"
+
+# Query Deployments (requires deployment provider)
+curl -s -X POST http://localhost:8080/deployments/query \
+  -H "Content-Type: application/json" \
+  -d '{
+    "statuses": ["success", "failed"],
+    "scope": {
+      "service": "api-service",
+      "environment": "production"
+    },
+    "limit": 10
+  }'
+
+# Get a specific deployment (requires deployment provider)
+curl -s http://localhost:8080/deployments/deploy-123
 ```
 
 Add `-H "Authorization: Bearer <token>"` to each curl when `OPSORCH_BEARER_TOKEN` is set.
@@ -203,6 +218,7 @@ OpsOrch exposes API endpoints for:
 - Tickets
 - Messaging
 - Services
+- Deployments
 
 Schemas live under `schema/` and evolve as the system matures.
 

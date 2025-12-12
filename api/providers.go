@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/opsorch/opsorch-core/alert"
+	"github.com/opsorch/opsorch-core/deployment"
 	"github.com/opsorch/opsorch-core/incident"
 	"github.com/opsorch/opsorch-core/log"
 	"github.com/opsorch/opsorch-core/messaging"
@@ -44,6 +45,8 @@ func (s *Server) handleProviders(w http.ResponseWriter, r *http.Request) bool {
 		providers = messaging.Providers()
 	case "service":
 		providers = service.Providers()
+	case "deployment":
+		providers = deployment.Providers()
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"providers": providers})
 	return true

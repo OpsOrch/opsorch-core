@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -23,6 +24,7 @@ type Server struct {
 	ticket      TicketHandler
 	messaging   MessagingHandler
 	service     ServiceHandler
+	deployment  DeploymentHandler
 	secret      SecretProvider
 }
 
@@ -73,6 +75,12 @@ func NewServerFromEnv(ctx context.Context) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
+	dep, err := newDeploymentHandlerFromEnv(sec)
+	if err != nil {
+		// Log the error but continue startup with deployment capability disabled
+		log.Printf("Failed to initialize deployment provider: %v", err)
+		dep = DeploymentHandler{} // Empty handler with nil provider
+	}
 
 	_ = ctx // reserved for future use
 
@@ -88,6 +96,7 @@ func NewServerFromEnv(ctx context.Context) (*Server, error) {
 		ticket:      tk,
 		messaging:   msg,
 		service:     svc,
+		deployment:  dep,
 		secret:      sec,
 	}, nil
 }
@@ -129,6 +138,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case s.handleTicket(w, r):
 	case s.handleMessaging(w, r):
 	case s.handleService(w, r):
+	case s.handleDeployment(w, r):
 	default:
 		http.NotFound(w, r)
 	}

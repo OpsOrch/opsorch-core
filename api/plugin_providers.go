@@ -187,3 +187,23 @@ func (p secretPluginProvider) Put(ctx context.Context, key, value string) error 
 	payload := map[string]any{"key": key, "value": value}
 	return p.runner.call(ctx, "secret.put", payload, nil)
 }
+
+// Deployment plugin provider -------------------------------------------------
+
+type deploymentPluginProvider struct {
+	runner *pluginRunner
+}
+
+func newDeploymentPluginProvider(path string, cfg map[string]any) deploymentPluginProvider {
+	return deploymentPluginProvider{runner: newPluginRunner(path, cfg)}
+}
+
+func (p deploymentPluginProvider) Query(ctx context.Context, query schema.DeploymentQuery) ([]schema.Deployment, error) {
+	var res []schema.Deployment
+	return res, p.runner.call(ctx, "deployment.query", query, &res)
+}
+
+func (p deploymentPluginProvider) Get(ctx context.Context, id string) (schema.Deployment, error) {
+	var res schema.Deployment
+	return res, p.runner.call(ctx, "deployment.get", map[string]any{"id": id}, &res)
+}
