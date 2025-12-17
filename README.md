@@ -27,7 +27,7 @@ Adapters live in separate repos such as:
 
 OpsOrch Core never links vendor logic directly. Each capability is resolved at runtime by either importing an **in-process provider** (Go package that registers itself) or by launching a **local plugin binary** that speaks OpsOrch's stdio RPC protocol. At startup OpsOrch checks for environment overrides first, then falls back to any persisted configuration stored via the secret provider.
 
-Environment variables for any capability (`incident`, `alert`, `log`, `metric`, `ticket`, `messaging`, `service`, `deployment`, `secret`):
+Environment variables for any capability (`incident`, `alert`, `log`, `metric`, `ticket`, `messaging`, `service`, `deployment`, `team`, `secret`):
 - `OPSORCH_<CAP>_PROVIDER=<registered name>` – name passed to the corresponding registry
 - `OPSORCH_<CAP>_CONFIG=<json>` – decrypted config map forwarded to the constructor
 - `OPSORCH_<CAP>_PLUGIN=/path/to/binary` – optional local plugin that overrides `OPSORCH_<CAP>_PROVIDER`
@@ -118,6 +118,23 @@ curl -s -X POST http://localhost:8080/deployments/query \
 
 # Get a specific deployment (requires deployment provider)
 curl -s http://localhost:8080/deployments/deploy-123
+
+# Query Teams (requires team provider)
+curl -s -X POST http://localhost:8080/teams/query \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "backend",
+    "tags": {"type": "team"},
+    "scope": {
+      "service": "api-service"
+    }
+  }'
+
+# Get a specific team (requires team provider)
+curl -s http://localhost:8080/teams/engineering
+
+# Get team members (requires team provider)
+curl -s http://localhost:8080/teams/engineering/members
 ```
 
 Add `-H "Authorization: Bearer <token>"` to each curl when `OPSORCH_BEARER_TOKEN` is set.
@@ -145,6 +162,7 @@ If only one is provided the server will refuse to start.
 Pre-built multi-platform Docker images (linux/amd64, linux/arm64) are automatically published to GitHub Container Registry (GHCR) on every release.
 
 **Pull and run the latest version:**
+
 ```bash
 docker pull ghcr.io/opsorch/opsorch-core:latest
 docker run --rm -p 8080:8080 ghcr.io/opsorch/opsorch-core:latest
@@ -219,6 +237,7 @@ OpsOrch exposes API endpoints for:
 - Messaging
 - Services
 - Deployments
+- Teams
 
 Schemas live under `schema/` and evolve as the system matures.
 

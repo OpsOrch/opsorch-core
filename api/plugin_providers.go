@@ -207,3 +207,28 @@ func (p deploymentPluginProvider) Get(ctx context.Context, id string) (schema.De
 	var res schema.Deployment
 	return res, p.runner.call(ctx, "deployment.get", map[string]any{"id": id}, &res)
 }
+
+// Team plugin provider -------------------------------------------------------
+
+type teamPluginProvider struct {
+	runner *pluginRunner
+}
+
+func newTeamPluginProvider(path string, cfg map[string]any) teamPluginProvider {
+	return teamPluginProvider{runner: newPluginRunner(path, cfg)}
+}
+
+func (p teamPluginProvider) Query(ctx context.Context, query schema.TeamQuery) ([]schema.Team, error) {
+	var res []schema.Team
+	return res, p.runner.call(ctx, "team.query", query, &res)
+}
+
+func (p teamPluginProvider) Get(ctx context.Context, id string) (schema.Team, error) {
+	var res schema.Team
+	return res, p.runner.call(ctx, "team.get", map[string]any{"id": id}, &res)
+}
+
+func (p teamPluginProvider) Members(ctx context.Context, teamID string) ([]schema.TeamMember, error) {
+	var res []schema.TeamMember
+	return res, p.runner.call(ctx, "team.members", map[string]any{"teamID": teamID}, &res)
+}

@@ -25,6 +25,7 @@ type Server struct {
 	messaging   MessagingHandler
 	service     ServiceHandler
 	deployment  DeploymentHandler
+	team        TeamHandler
 	secret      SecretProvider
 }
 
@@ -81,6 +82,12 @@ func NewServerFromEnv(ctx context.Context) (*Server, error) {
 		log.Printf("Failed to initialize deployment provider: %v", err)
 		dep = DeploymentHandler{} // Empty handler with nil provider
 	}
+	tm, err := newTeamHandlerFromEnv(sec)
+	if err != nil {
+		// Log the error but continue startup with team capability disabled
+		log.Printf("Failed to initialize team provider: %v", err)
+		tm = TeamHandler{} // Empty handler with nil provider
+	}
 
 	_ = ctx // reserved for future use
 
@@ -97,6 +104,7 @@ func NewServerFromEnv(ctx context.Context) (*Server, error) {
 		messaging:   msg,
 		service:     svc,
 		deployment:  dep,
+		team:        tm,
 		secret:      sec,
 	}, nil
 }
@@ -139,6 +147,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case s.handleMessaging(w, r):
 	case s.handleService(w, r):
 	case s.handleDeployment(w, r):
+	case s.handleTeam(w, r):
 	default:
 		http.NotFound(w, r)
 	}
