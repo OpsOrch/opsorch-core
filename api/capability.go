@@ -21,6 +21,8 @@ func normalizeCapability(name string) (string, bool) {
 		return "service", true
 	case "deployment", "deployments":
 		return "deployment", true
+	case "team", "teams":
+		return "team", true
 	default:
 		return "", false
 	}
