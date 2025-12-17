@@ -718,41 +718,41 @@ func TestTeamProperty_ErrorResponseConsistency(t *testing.T) {
 // **Feature: team-capability, Property: Startup resilience**
 func TestTeamProperty_StartupResilience(t *testing.T) {
 	testCases := []struct {
-		name               string
-		provider           string
-		config             string
-		plugin             string
+		name                string
+		provider            string
+		config              string
+		plugin              string
 		expectServerStartup bool
-		expectTeamEnabled  bool
+		expectTeamEnabled   bool
 	}{
 		{
-			name:               "valid team provider",
-			provider:           "mock",
-			config:             `{"test": "value"}`,
+			name:                "valid team provider",
+			provider:            "mock",
+			config:              `{"test": "value"}`,
 			expectServerStartup: true,
-			expectTeamEnabled:  true,
+			expectTeamEnabled:   true,
 		},
 		{
-			name:               "invalid team provider",
-			provider:           "nonexistent",
-			config:             `{"test": "value"}`,
+			name:                "invalid team provider",
+			provider:            "nonexistent",
+			config:              `{"test": "value"}`,
 			expectServerStartup: true,  // Server should still start
-			expectTeamEnabled:  false, // But team should be disabled
+			expectTeamEnabled:   false, // But team should be disabled
 		},
 		{
-			name:               "no team provider",
-			provider:           "",
-			config:             "",
-			plugin:             "",
+			name:                "no team provider",
+			provider:            "",
+			config:              "",
+			plugin:              "",
 			expectServerStartup: true,
-			expectTeamEnabled:  false,
+			expectTeamEnabled:   false,
 		},
 		{
-			name:               "invalid JSON config",
-			provider:           "mock",
-			config:             `{invalid json}`,
+			name:                "invalid JSON config",
+			provider:            "mock",
+			config:              `{invalid json}`,
 			expectServerStartup: true,  // Server should still start
-			expectTeamEnabled:  false, // But team should be disabled
+			expectTeamEnabled:   false, // But team should be disabled
 		},
 	}
 
