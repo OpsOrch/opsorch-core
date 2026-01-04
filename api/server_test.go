@@ -86,8 +86,11 @@ func (s stubAlertProvider) Get(ctx context.Context, id string) (schema.Alert, er
 
 type stubLogProvider struct{}
 
-func (s stubLogProvider) Query(ctx context.Context, q schema.LogQuery) ([]schema.LogEntry, error) {
-	return []schema.LogEntry{{Timestamp: time.Now(), Message: "log-entry", URL: logEntryURL}}, nil
+func (s stubLogProvider) Query(ctx context.Context, q schema.LogQuery) (schema.LogEntries, error) {
+	return schema.LogEntries{
+		Entries: []schema.LogEntry{{Timestamp: time.Now(), Message: "log-entry"}},
+		URL:     logEntryURL,
+	}, nil
 }
 
 type stubMetricProvider struct{}
@@ -347,11 +350,11 @@ func TestLogQueryViaPlugin(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", w.Code)
 	}
-	var out []schema.LogEntry
+	var out schema.LogEntries
 	if err := json.NewDecoder(w.Body).Decode(&out); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if len(out) == 0 || !strings.Contains(out[0].Message, "plugin log") {
+	if len(out.Entries) == 0 || !strings.Contains(out.Entries[0].Message, "plugin log") {
 		t.Fatalf("unexpected log plugin response: %+v", out)
 	}
 }
@@ -446,15 +449,15 @@ func TestLogQuery(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", w.Code)
 	}
-	var out []schema.LogEntry
+	var out schema.LogEntries
 	if err := json.NewDecoder(w.Body).Decode(&out); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if len(out) != 1 || out[0].Message != "log-entry" {
+	if len(out.Entries) != 1 || out.Entries[0].Message != "log-entry" {
 		t.Fatalf("unexpected log response: %+v", out)
 	}
-	if out[0].URL != logEntryURL {
-		t.Fatalf("expected log url %s, got %s", logEntryURL, out[0].URL)
+	if out.URL != logEntryURL {
+		t.Fatalf("expected log url %s, got %s", logEntryURL, out.URL)
 	}
 }
 
