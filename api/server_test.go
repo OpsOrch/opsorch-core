@@ -21,11 +21,22 @@ import (
 	"github.com/opsorch/opsorch-core/service"
 )
 
+const (
+	incidentBaseURL     = "https://incidents.test/"
+	alertBaseURL        = "https://alerts.test/"
+	logEntryURL         = "https://logs.test/stream"
+	metricSeriesURL     = "https://metrics.test/series/cpu"
+	metricDescriptorURL = "https://metrics.test/describe/cpu"
+	ticketBaseURL       = "https://tickets.test/"
+	messagingResultURL  = "https://messages.test/m1"
+	serviceURL          = "https://services.test/svc1"
+)
+
 // stubIncidentProvider implements incident.Provider for tests.
 type stubIncidentProvider struct{}
 
 func (s stubIncidentProvider) Query(ctx context.Context, query schema.IncidentQuery) ([]schema.Incident, error) {
-	res := []schema.Incident{{ID: "1", Title: "test", CreatedAt: time.Now(), UpdatedAt: time.Now()}}
+	res := []schema.Incident{{ID: "1", Title: "test", URL: incidentBaseURL + "1", CreatedAt: time.Now(), UpdatedAt: time.Now()}}
 	if query.Limit > 0 && query.Limit < len(res) {
 		return res[:query.Limit], nil
 	}
@@ -33,15 +44,15 @@ func (s stubIncidentProvider) Query(ctx context.Context, query schema.IncidentQu
 }
 
 func (s stubIncidentProvider) Get(ctx context.Context, id string) (schema.Incident, error) {
-	return schema.Incident{ID: id, Title: "test", CreatedAt: time.Now(), UpdatedAt: time.Now()}, nil
+	return schema.Incident{ID: id, Title: "test", URL: incidentBaseURL + id, CreatedAt: time.Now(), UpdatedAt: time.Now()}, nil
 }
 
 func (s stubIncidentProvider) Create(ctx context.Context, in schema.CreateIncidentInput) (schema.Incident, error) {
-	return schema.Incident{ID: "new", Title: in.Title, CreatedAt: time.Now(), UpdatedAt: time.Now()}, nil
+	return schema.Incident{ID: "new", Title: in.Title, URL: incidentBaseURL + "new", CreatedAt: time.Now(), UpdatedAt: time.Now()}, nil
 }
 
 func (s stubIncidentProvider) Update(ctx context.Context, id string, in schema.UpdateIncidentInput) (schema.Incident, error) {
-	return schema.Incident{ID: id, Title: derefString(in.Title, "test"), CreatedAt: time.Now(), UpdatedAt: time.Now()}, nil
+	return schema.Incident{ID: id, Title: derefString(in.Title, "test"), URL: incidentBaseURL + id, CreatedAt: time.Now(), UpdatedAt: time.Now()}, nil
 }
 
 func (s stubIncidentProvider) GetTimeline(ctx context.Context, id string) ([]schema.TimelineEntry, error) {
@@ -62,7 +73,7 @@ func derefString(s *string, fallback string) string {
 type stubAlertProvider struct{}
 
 func (s stubAlertProvider) Query(ctx context.Context, query schema.AlertQuery) ([]schema.Alert, error) {
-	res := []schema.Alert{{ID: "a1", Title: "test alert", Status: "firing", Severity: "critical", CreatedAt: time.Now(), UpdatedAt: time.Now()}}
+	res := []schema.Alert{{ID: "a1", Title: "test alert", Status: "firing", Severity: "critical", URL: alertBaseURL + "a1", CreatedAt: time.Now(), UpdatedAt: time.Now()}}
 	if query.Limit > 0 && query.Limit < len(res) {
 		return res[:query.Limit], nil
 	}
@@ -70,13 +81,13 @@ func (s stubAlertProvider) Query(ctx context.Context, query schema.AlertQuery) (
 }
 
 func (s stubAlertProvider) Get(ctx context.Context, id string) (schema.Alert, error) {
-	return schema.Alert{ID: id, Title: "test alert", Status: "firing", Severity: "critical", CreatedAt: time.Now(), UpdatedAt: time.Now()}, nil
+	return schema.Alert{ID: id, Title: "test alert", Status: "firing", Severity: "critical", URL: alertBaseURL + id, CreatedAt: time.Now(), UpdatedAt: time.Now()}, nil
 }
 
 type stubLogProvider struct{}
 
 func (s stubLogProvider) Query(ctx context.Context, q schema.LogQuery) ([]schema.LogEntry, error) {
-	return []schema.LogEntry{{Timestamp: time.Now(), Message: "log-entry"}}, nil
+	return []schema.LogEntry{{Timestamp: time.Now(), Message: "log-entry", URL: logEntryURL}}, nil
 }
 
 type stubMetricProvider struct{}
@@ -85,6 +96,7 @@ func (s stubMetricProvider) Query(ctx context.Context, q schema.MetricQuery) ([]
 	return []schema.MetricSeries{{
 		Name:   "cpu",
 		Points: []schema.MetricPoint{{Timestamp: time.Now(), Value: 1.0}},
+		URL:    metricSeriesURL,
 	}}, nil
 }
 
@@ -94,6 +106,7 @@ func (s stubMetricProvider) Describe(ctx context.Context, scope schema.QueryScop
 		Type:        "gauge",
 		Description: "CPU usage",
 		Labels:      []string{"host"},
+		URL:         metricDescriptorURL,
 	}}, nil
 }
 
@@ -101,36 +114,36 @@ type stubTicketProvider struct{}
 
 func (s stubTicketProvider) Query(ctx context.Context, query schema.TicketQuery) ([]schema.Ticket, error) {
 	now := time.Now()
-	return []schema.Ticket{{ID: "t1", Title: "ticket", Status: "open", CreatedAt: now, UpdatedAt: now}}, nil
+	return []schema.Ticket{{ID: "t1", Title: "ticket", Status: "open", URL: ticketBaseURL + "t1", CreatedAt: now, UpdatedAt: now}}, nil
 }
 
 func (s stubTicketProvider) Get(ctx context.Context, id string) (schema.Ticket, error) {
 	now := time.Now()
-	return schema.Ticket{ID: id, Title: "ticket", Status: "open", CreatedAt: now, UpdatedAt: now}, nil
+	return schema.Ticket{ID: id, Title: "ticket", Status: "open", URL: ticketBaseURL + id, CreatedAt: now, UpdatedAt: now}, nil
 }
 
 func (s stubTicketProvider) Create(ctx context.Context, in schema.CreateTicketInput) (schema.Ticket, error) {
 	now := time.Now()
-	return schema.Ticket{ID: "new", Title: in.Title, Status: "open", CreatedAt: now, UpdatedAt: now}, nil
+	return schema.Ticket{ID: "new", Title: in.Title, Status: "open", URL: ticketBaseURL + "new", CreatedAt: now, UpdatedAt: now}, nil
 }
 
 func (s stubTicketProvider) Update(ctx context.Context, id string, in schema.UpdateTicketInput) (schema.Ticket, error) {
 	now := time.Now()
 	title := derefString(in.Title, "ticket")
 	status := derefString(in.Status, "open")
-	return schema.Ticket{ID: id, Title: title, Status: status, CreatedAt: now, UpdatedAt: now}, nil
+	return schema.Ticket{ID: id, Title: title, Status: status, URL: ticketBaseURL + id, CreatedAt: now, UpdatedAt: now}, nil
 }
 
 type stubMessagingProvider struct{}
 
 func (s stubMessagingProvider) Send(ctx context.Context, msg schema.Message) (schema.MessageResult, error) {
-	return schema.MessageResult{ID: "m1", Channel: msg.Channel, Metadata: msg.Metadata, SentAt: time.Now()}, nil
+	return schema.MessageResult{ID: "m1", Channel: msg.Channel, URL: messagingResultURL, Metadata: msg.Metadata, SentAt: time.Now()}, nil
 }
 
 type stubServiceProvider struct{}
 
 func (s stubServiceProvider) Query(ctx context.Context, q schema.ServiceQuery) ([]schema.Service, error) {
-	return []schema.Service{{ID: "svc1", Name: "Service 1"}}, nil
+	return []schema.Service{{ID: "svc1", Name: "Service 1", URL: serviceURL}}, nil
 }
 
 type memorySecret struct {
@@ -281,6 +294,9 @@ func TestIncidentQuery(t *testing.T) {
 	}
 	if len(out) != 1 || out[0].ID != "1" {
 		t.Fatalf("unexpected incident response: %+v", out)
+	}
+	if out[0].URL != incidentBaseURL+"1" {
+		t.Fatalf("expected incident url %s1, got %s", incidentBaseURL, out[0].URL)
 	}
 }
 
@@ -437,6 +453,9 @@ func TestLogQuery(t *testing.T) {
 	if len(out) != 1 || out[0].Message != "log-entry" {
 		t.Fatalf("unexpected log response: %+v", out)
 	}
+	if out[0].URL != logEntryURL {
+		t.Fatalf("expected log url %s, got %s", logEntryURL, out[0].URL)
+	}
 }
 
 func TestMetricQuery(t *testing.T) {
@@ -457,6 +476,9 @@ func TestMetricQuery(t *testing.T) {
 	if len(out) != 1 || out[0].Name != "cpu" {
 		t.Fatalf("unexpected metric response: %+v", out)
 	}
+	if out[0].URL != metricSeriesURL {
+		t.Fatalf("expected metric url %s, got %s", metricSeriesURL, out[0].URL)
+	}
 }
 
 func TestMetricDescribe(t *testing.T) {
@@ -476,6 +498,9 @@ func TestMetricDescribe(t *testing.T) {
 	if len(out["metrics"]) != 1 || out["metrics"][0].Name != "cpu" {
 		t.Fatalf("unexpected metric describe response: %+v", out)
 	}
+	if out["metrics"][0].URL != metricDescriptorURL {
+		t.Fatalf("expected metric descriptor url %s, got %s", metricDescriptorURL, out["metrics"][0].URL)
+	}
 }
 
 func TestServiceQuery(t *testing.T) {
@@ -487,6 +512,13 @@ func TestServiceQuery(t *testing.T) {
 	srv.ServeHTTP(w, req)
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	var services []schema.Service
+	if err := json.NewDecoder(w.Body).Decode(&services); err != nil {
+		t.Fatalf("decode services: %v", err)
+	}
+	if len(services) != 1 || services[0].URL != serviceURL {
+		t.Fatalf("unexpected service response: %+v", services)
 	}
 }
 
@@ -507,6 +539,9 @@ func TestTicketCreateAndGet(t *testing.T) {
 	if len(tickets) != 1 || tickets[0].ID != "t1" {
 		t.Fatalf("unexpected ticket list: %+v", tickets)
 	}
+	if tickets[0].URL != ticketBaseURL+"t1" {
+		t.Fatalf("expected ticket url %st1, got %s", ticketBaseURL, tickets[0].URL)
+	}
 
 	body, _ := json.Marshal(schema.CreateTicketInput{Title: "t"})
 	req := httptest.NewRequest(http.MethodPost, "/tickets", bytes.NewReader(body))
@@ -514,6 +549,13 @@ func TestTicketCreateAndGet(t *testing.T) {
 	srv.ServeHTTP(w, req)
 	if w.Code != http.StatusCreated {
 		t.Fatalf("create expected 201, got %d", w.Code)
+	}
+	var created schema.Ticket
+	if err := json.NewDecoder(w.Body).Decode(&created); err != nil {
+		t.Fatalf("decode created ticket: %v", err)
+	}
+	if created.URL != ticketBaseURL+"new" {
+		t.Fatalf("expected created ticket url %snew, got %s", ticketBaseURL, created.URL)
 	}
 
 	req2 := httptest.NewRequest(http.MethodGet, "/tickets/abc", nil)
@@ -528,6 +570,9 @@ func TestTicketCreateAndGet(t *testing.T) {
 	}
 	if tkt.ID != "abc" {
 		t.Fatalf("unexpected ticket id: %s", tkt.ID)
+	}
+	if tkt.URL != ticketBaseURL+"abc" {
+		t.Fatalf("expected ticket url %sabc, got %s", ticketBaseURL, tkt.URL)
 	}
 }
 
@@ -546,6 +591,9 @@ func TestMessagingSend(t *testing.T) {
 	}
 	if res.ID != "m1" || res.Channel != "c" {
 		t.Fatalf("unexpected messaging response: %+v", res)
+	}
+	if res.URL != messagingResultURL {
+		t.Fatalf("expected messaging url %s, got %s", messagingResultURL, res.URL)
 	}
 }
 
@@ -656,6 +704,9 @@ func TestAlertQuery(t *testing.T) {
 	if len(out) != 1 || out[0].ID != "a1" {
 		t.Fatalf("unexpected alert response: %+v", out)
 	}
+	if out[0].URL != alertBaseURL+"a1" {
+		t.Fatalf("expected alert url %sa1, got %s", alertBaseURL, out[0].URL)
+	}
 }
 
 func TestAlertGet(t *testing.T) {
@@ -675,6 +726,9 @@ func TestAlertGet(t *testing.T) {
 	}
 	if out.ID != "abc" {
 		t.Fatalf("unexpected alert ID: %s", out.ID)
+	}
+	if out.URL != alertBaseURL+"abc" {
+		t.Fatalf("expected alert url %sabc, got %s", alertBaseURL, out.URL)
 	}
 }
 

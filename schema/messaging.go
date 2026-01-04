@@ -32,5 +32,6 @@ type MessageResult struct {
 	ID       string         `json:"id"`
 	Channel  string         `json:"channel"`
 	SentAt   time.Time      `json:"sentAt"`
+	URL      string         `json:"url,omitempty"`
 	Metadata map[string]any `json:"metadata,omitempty"`
 }

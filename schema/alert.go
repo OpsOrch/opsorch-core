@@ -37,6 +37,7 @@ type Alert struct {
 	Status      string    `json:"status"`
 	Severity    string    `json:"severity"`
 	Service     string    `json:"service,omitempty"`
+	URL         string    `json:"url,omitempty"`
 	CreatedAt   time.Time `json:"createdAt"`
 	UpdatedAt   time.Time `json:"updatedAt"`
 
