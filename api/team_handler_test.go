@@ -189,6 +189,7 @@ func TestTeamProperty_TeamQueryBodyProcessing(t *testing.T) {
 					ID:   "team-1",
 					Name: query.Name,
 					Tags: query.Tags,
+					URL:  fmt.Sprintf("https://teams.test/%s", query.Name),
 				},
 			}
 			return teams, nil
@@ -282,6 +283,10 @@ func TestTeamProperty_TeamQueryBodyProcessing(t *testing.T) {
 			if tc.query.Name != "" && teams[0].Name != tc.query.Name {
 				t.Errorf("expected name %s, got %s", tc.query.Name, teams[0].Name)
 			}
+			expectedURL := fmt.Sprintf("https://teams.test/%s", tc.query.Name)
+			if teams[0].URL != expectedURL {
+				t.Errorf("expected team url %s, got %s", expectedURL, teams[0].URL)
+			}
 		})
 	}
 }
@@ -301,6 +306,7 @@ func TestTeamProperty_TeamIDRetrieval(t *testing.T) {
 				ID:     "team-123",
 				Name:   "Backend Team",
 				Parent: "engineering",
+				URL:    "https://teams.test/team-123",
 				Tags:   map[string]string{"department": "engineering"},
 			},
 			expectError: false,
@@ -311,6 +317,7 @@ func TestTeamProperty_TeamIDRetrieval(t *testing.T) {
 			mockTeam: schema.Team{
 				ID:   "team-abc-123_def",
 				Name: "Platform Team",
+				URL:  "https://teams.test/team-abc-123_def",
 			},
 			expectError: false,
 		},
@@ -320,6 +327,7 @@ func TestTeamProperty_TeamIDRetrieval(t *testing.T) {
 			mockTeam: schema.Team{
 				ID:   "very-long-team-id-with-many-characters-12345678901234567890",
 				Name: "Data Science Team",
+				URL:  "https://teams.test/very-long-team-id-with-many-characters-12345678901234567890",
 			},
 			expectError: false,
 		},
@@ -369,6 +377,9 @@ func TestTeamProperty_TeamIDRetrieval(t *testing.T) {
 				}
 				if team.Parent != tc.mockTeam.Parent {
 					t.Errorf("expected parent %s, got %s", tc.mockTeam.Parent, team.Parent)
+				}
+				if team.URL != tc.mockTeam.URL {
+					t.Errorf("expected team url %s, got %s", tc.mockTeam.URL, team.URL)
 				}
 			}
 		})

@@ -39,6 +39,9 @@ type Service struct {
 	// Providers may map this from title, name, alias, or other upstream fields.
 	Name string `json:"name"`
 
+	// URL is the deep link to the service in the provider's UI.
+	URL string `json:"url,omitempty"`
+
 	// Tags contains normalized key/value tags for filtering and correlation.
 	// Providers flatten their native tag/label formats into string pairs.
 	Tags map[string]string `json:"tags,omitempty"`

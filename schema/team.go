@@ -34,6 +34,9 @@ type Team struct {
 	// value if you need the parent details.
 	Parent string `json:"parent,omitempty"`
 
+	// URL is the deep link to the team in the provider's UI.
+	URL string `json:"url,omitempty"`
+
 	// Tags contains normalized key/value tags for filtering and correlation.
 	Tags map[string]string `json:"tags,omitempty"`
 

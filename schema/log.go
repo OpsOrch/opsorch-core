@@ -48,6 +48,7 @@ type LogEntry struct {
 	Message   string            `json:"message"`
 	Severity  string            `json:"severity,omitempty"`
 	Service   string            `json:"service,omitempty"`
+	URL       string            `json:"url,omitempty"`
 	Labels    map[string]string `json:"labels,omitempty"`   // filterable
 	Fields    map[string]any    `json:"fields,omitempty"`   // structured JSON
 	Metadata  map[string]any    `json:"metadata,omitempty"` // provider-specific

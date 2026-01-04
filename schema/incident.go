@@ -33,6 +33,7 @@ type Incident struct {
 	Status      string         `json:"status"`
 	Severity    string         `json:"severity"`
 	Service     string         `json:"service,omitempty"`
+	URL         string         `json:"url,omitempty"`
 	CreatedAt   time.Time      `json:"createdAt"`
 	UpdatedAt   time.Time      `json:"updatedAt"`
 	Fields      map[string]any `json:"fields,omitempty"`

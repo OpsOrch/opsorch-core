@@ -50,6 +50,7 @@ type MetricDescriptor struct {
 	Description string         `json:"description"`        // Human-readable description
 	Labels      []string       `json:"labels"`             // Available label keys
 	Unit        string         `json:"unit,omitempty"`     // "bytes", "seconds", "requests"
+	URL         string         `json:"url,omitempty"`      // Upstream link to the metric (e.g. Prometheus expression browser)
 	Metadata    map[string]any `json:"metadata,omitempty"` // Provider-specific metadata
 }
 
@@ -59,6 +60,7 @@ type MetricSeries struct {
 	Service  string         `json:"service,omitempty"`
 	Labels   map[string]any `json:"labels,omitempty"`
 	Points   []MetricPoint  `json:"points"`
+	URL      string         `json:"url,omitempty"`
 	Metadata map[string]any `json:"metadata,omitempty"`
 }
 

@@ -276,6 +276,9 @@ OpsOrch uses structured expressions for querying logs and metrics, replacing fre
   }
   ```
 
+### Provider Deep Links
+Normalized resources now carry an optional `url` deep link back to the upstream system. Adapters should populate this string whenever the provider exposes a canonical UI link so OpsOrch clients can jump directly to the source incident, alert, log view, metric chart, ticket, team, service, or message. The field is passthrough only—OpsOrch does not generate, log, or modify these URLs—so adapters remain responsible for ensuring they do not leak secrets.
+
 ### Adapter Architecture
 OpsOrch Core contains **no provider logic**.  
 Adapters implement capability interfaces in their own repos and register with the registry.

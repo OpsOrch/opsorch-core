@@ -23,6 +23,7 @@ type Ticket struct {
 	Status      string         `json:"status"`
 	Assignees   []string       `json:"assignees,omitempty"`
 	Reporter    string         `json:"reporter,omitempty"`
+	URL         string         `json:"url,omitempty"`
 	CreatedAt   time.Time      `json:"createdAt"`
 	UpdatedAt   time.Time      `json:"updatedAt"`
 	Fields      map[string]any `json:"fields,omitempty"`
