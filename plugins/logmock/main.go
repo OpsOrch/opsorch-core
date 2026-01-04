@@ -18,6 +18,10 @@ type rpcResponse struct {
 	Error  string `json:"error,omitempty"`
 }
 
+type LogEntries struct {
+	Entries []LogEntry `json:"entries"`
+	URL     string     `json:"url,omitempty"`
+}
 type LogEntry struct {
 	Timestamp time.Time      `json:"timestamp"`
 	Message   string         `json:"message"`
@@ -62,12 +66,15 @@ func main() {
 				writeErr(err)
 				continue
 			}
-			res := []LogEntry{{
-				Timestamp: time.Now(),
-				Message:   fmt.Sprintf("plugin log: %s", q.Query),
-				Severity:  "info",
-				Service:   q.Scope.Service,
-			}}
+			res := LogEntries{
+				Entries: []LogEntry{{
+					Timestamp: time.Now(),
+					Message:   fmt.Sprintf("plugin log: %s", q.Query),
+					Severity:  "info",
+					Service:   q.Scope.Service,
+				}},
+				URL: "https://logs.example.com/query?q=" + q.Query,
+			}
 			writeOK(res)
 		default:
 			writeErr(fmt.Errorf("unknown method %s", req.Method))

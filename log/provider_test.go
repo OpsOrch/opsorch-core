@@ -9,8 +9,8 @@ import (
 
 type stubLogProvider struct{}
 
-func (stubLogProvider) Query(ctx context.Context, q schema.LogQuery) ([]schema.LogEntry, error) {
-	return nil, nil
+func (stubLogProvider) Query(ctx context.Context, q schema.LogQuery) (schema.LogEntries, error) {
+	return schema.LogEntries{}, nil
 }
 
 func TestLogRegisterLookup(t *testing.T) {

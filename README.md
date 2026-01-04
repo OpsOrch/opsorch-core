@@ -88,6 +88,19 @@ curl -s -X POST http://localhost:8080/incidents/p1/timeline \
 # Query Alerts (requires alert provider)
 curl -s -X POST http://localhost:8080/alerts/query -d '{}'
 
+# Query Logs (requires log provider)
+curl -s -X POST http://localhost:8080/logs/query \
+  -H "Content-Type: application/json" \
+  -d '{
+    "expression": {
+      "search": "error",
+      "severityIn": ["error", "critical"]
+    },
+    "start": "2023-10-01T00:00:00Z",
+    "end": "2023-10-01T01:00:00Z",
+    "limit": 100
+  }'
+
 # Query Metrics (requires metric provider)
 curl -s -X POST http://localhost:8080/metrics/query \
   -H "Content-Type: application/json" \
@@ -266,6 +279,7 @@ OpsOrch uses structured expressions for querying logs and metrics, replacing fre
 
 **Log Queries**:
 - **Structure**: `Search` (text), `Filters` (field-based), `SeverityIn`.
+- **Response**: Returns `LogEntries` containing an array of log entries and optional URL to view results in the source system.
 - **Example**:
   ```json
   {
@@ -277,7 +291,7 @@ OpsOrch uses structured expressions for querying logs and metrics, replacing fre
   ```
 
 ### Provider Deep Links
-Normalized resources now carry an optional `url` deep link back to the upstream system. Adapters should populate this string whenever the provider exposes a canonical UI link so OpsOrch clients can jump directly to the source incident, alert, log view, metric chart, ticket, team, service, or message. The field is passthrough only—OpsOrch does not generate, log, or modify these URLs—so adapters remain responsible for ensuring they do not leak secrets.
+Normalized resources now carry optional `url` fields for deep linking back to upstream systems. For individual resources (incidents, alerts, tickets, etc.), the URL links to that specific resource. For collections like log entries and metric series, the URL links to the query results or filtered view in the source system (e.g., Datadog logs dashboard, Grafana metric chart). Adapters should populate these URLs whenever the provider exposes canonical UI links so OpsOrch clients can jump directly to the source system. The field is passthrough only—OpsOrch does not generate, log, or modify these URLs—so adapters remain responsible for ensuring they do not leak secrets.
 
 ### Adapter Architecture
 OpsOrch Core contains **no provider logic**.  

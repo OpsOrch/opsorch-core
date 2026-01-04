@@ -82,8 +82,8 @@ func newLogPluginProvider(path string, cfg map[string]any) logPluginProvider {
 	return logPluginProvider{runner: newPluginRunner(path, cfg)}
 }
 
-func (p logPluginProvider) Query(ctx context.Context, query schema.LogQuery) ([]schema.LogEntry, error) {
-	var res []schema.LogEntry
+func (p logPluginProvider) Query(ctx context.Context, query schema.LogQuery) (schema.LogEntries, error) {
+	var res schema.LogEntries
 	return res, p.runner.call(ctx, "log.query", query, &res)
 }
 

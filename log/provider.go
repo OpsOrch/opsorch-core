@@ -9,7 +9,7 @@ import (
 
 // Provider defines the capability surface for log adapters.
 type Provider interface {
-	Query(ctx context.Context, query schema.LogQuery) ([]schema.LogEntry, error)
+	Query(ctx context.Context, query schema.LogQuery) (schema.LogEntries, error)
 }
 
 // ProviderConstructor builds a log provider from decrypted configuration.
