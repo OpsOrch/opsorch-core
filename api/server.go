@@ -11,22 +11,23 @@ import (
 
 // Server routes requests to capability handlers.
 type Server struct {
-	corsOrigin  string
-	bearerToken string
-	tlsCertFile string
-	tlsKeyFile  string
-	serve       func(*http.Server) error                 // optional override for tests
-	serveTLS    func(*http.Server, string, string) error // optional override for tests
-	incident    IncidentHandler
-	alert       AlertHandler
-	log         LogHandler
-	metric      MetricHandler
-	ticket      TicketHandler
-	messaging   MessagingHandler
-	service     ServiceHandler
-	deployment  DeploymentHandler
-	team        TeamHandler
-	secret      SecretProvider
+	corsOrigin    string
+	bearerToken   string
+	tlsCertFile   string
+	tlsKeyFile    string
+	serve         func(*http.Server) error                 // optional override for tests
+	serveTLS      func(*http.Server, string, string) error // optional override for tests
+	incident      IncidentHandler
+	alert         AlertHandler
+	log           LogHandler
+	metric        MetricHandler
+	ticket        TicketHandler
+	messaging     MessagingHandler
+	service       ServiceHandler
+	deployment    DeploymentHandler
+	team          TeamHandler
+	orchestration OrchestrationHandler
+	secret        SecretProvider
 }
 
 // NewServerFromEnv constructs a Server with providers loaded from environment variables.
@@ -88,24 +89,31 @@ func NewServerFromEnv(ctx context.Context) (*Server, error) {
 		log.Printf("Failed to initialize team provider: %v", err)
 		tm = TeamHandler{} // Empty handler with nil provider
 	}
+	orch, err := newOrchestrationHandlerFromEnv(sec)
+	if err != nil {
+		// Log the error but continue startup with orchestration capability disabled
+		log.Printf("Failed to initialize orchestration provider: %v", err)
+		orch = OrchestrationHandler{} // Empty handler with nil provider
+	}
 
 	_ = ctx // reserved for future use
 
 	return &Server{
-		corsOrigin:  corsOrigin,
-		bearerToken: bearer,
-		tlsCertFile: tlsCertFile,
-		tlsKeyFile:  tlsKeyFile,
-		incident:    inc,
-		alert:       al,
-		log:         lg,
-		metric:      mt,
-		ticket:      tk,
-		messaging:   msg,
-		service:     svc,
-		deployment:  dep,
-		team:        tm,
-		secret:      sec,
+		corsOrigin:    corsOrigin,
+		bearerToken:   bearer,
+		tlsCertFile:   tlsCertFile,
+		tlsKeyFile:    tlsKeyFile,
+		incident:      inc,
+		alert:         al,
+		log:           lg,
+		metric:        mt,
+		ticket:        tk,
+		messaging:     msg,
+		service:       svc,
+		deployment:    dep,
+		team:          tm,
+		orchestration: orch,
+		secret:        sec,
 	}, nil
 }
 
@@ -148,6 +156,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case s.handleService(w, r):
 	case s.handleDeployment(w, r):
 	case s.handleTeam(w, r):
+	case s.handleOrchestration(w, r):
 	default:
 		http.NotFound(w, r)
 	}

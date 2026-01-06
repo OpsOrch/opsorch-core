@@ -14,6 +14,7 @@ import (
 	"github.com/opsorch/opsorch-core/messaging"
 	"github.com/opsorch/opsorch-core/metric"
 	"github.com/opsorch/opsorch-core/orcherr"
+	"github.com/opsorch/opsorch-core/orchestration"
 	"github.com/opsorch/opsorch-core/service"
 	"github.com/opsorch/opsorch-core/team"
 	"github.com/opsorch/opsorch-core/ticket"
@@ -50,6 +51,8 @@ func (s *Server) handleProviders(w http.ResponseWriter, r *http.Request) bool {
 		providers = deployment.Providers()
 	case "team":
 		providers = team.Providers()
+	case "orchestration":
+		providers = orchestration.Providers()
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"providers": providers})
 	return true
