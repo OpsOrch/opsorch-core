@@ -127,8 +127,45 @@ Providers can be:
 
 OpsOrch Core can launch a local adapter binary as a child process (no network hops) when `OPSORCH_<CAP>_PLUGIN` is set or the provider config includes a `plugin` path. RPC is JSON over stdin/stdout:
 
-- Request: `{ "method": "incident.query" | "alert.query" | "log.query" | "metric.describe" | ..., "config": {...}, "payload": {...} }`
+- Request: `{ "method": "<capability>.<operation>", "config": {...}, "payload": {...} }`
 - Response: `{ "result": <value>, "error": "<msg>" }`
+
+**RPC Methods by Capability:**
+
+| Capability | Method | Payload |
+|------------|--------|---------|
+| incident | `incident.query` | `IncidentQuery` |
+| incident | `incident.list` | `null` |
+| incident | `incident.get` | `{ "id": string }` |
+| incident | `incident.create` | `CreateIncidentInput` |
+| incident | `incident.update` | `{ "id": string, "input": UpdateIncidentInput }` |
+| incident | `incident.timeline.get` | `{ "id": string }` |
+| incident | `incident.timeline.append` | `{ "id": string, "entry": TimelineAppendInput }` |
+| alert | `alert.query` | `AlertQuery` |
+| alert | `alert.get` | `{ "id": string }` |
+| log | `log.query` | `LogQuery` |
+| metric | `metric.query` | `MetricQuery` |
+| metric | `metric.describe` | `QueryScope` |
+| ticket | `ticket.query` | `TicketQuery` |
+| ticket | `ticket.get` | `{ "id": string }` |
+| ticket | `ticket.create` | `CreateTicketInput` |
+| ticket | `ticket.update` | `{ "id": string, "input": UpdateTicketInput }` |
+| messaging | `messaging.send` | `Message` |
+| service | `service.query` | `ServiceQuery` |
+| deployment | `deployment.query` | `DeploymentQuery` |
+| deployment | `deployment.get` | `{ "id": string }` |
+| team | `team.query` | `TeamQuery` |
+| team | `team.get` | `{ "id": string }` |
+| team | `team.members` | `{ "teamID": string }` |
+| orchestration | `orchestration.plans.query` | `OrchestrationPlanQuery` |
+| orchestration | `orchestration.plans.get` | `{ "planId": string }` |
+| orchestration | `orchestration.runs.query` | `OrchestrationRunQuery` |
+| orchestration | `orchestration.runs.get` | `{ "runId": string }` |
+| orchestration | `orchestration.runs.start` | `{ "planId": string }` |
+| orchestration | `orchestration.runs.steps.complete` | `{ "runId": string, "stepId": string, "actor": string, "note": string }` |
+
+| secret | `secret.get` | `{ "key": string }` |
+| secret | `secret.put` | `{ "key": string, "value": string }` |
 
 The plugin process stays alive and receives multiple RPC calls on the same stdio stream.
 

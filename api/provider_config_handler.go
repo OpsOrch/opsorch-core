@@ -13,6 +13,7 @@ import (
 	"github.com/opsorch/opsorch-core/messaging"
 	"github.com/opsorch/opsorch-core/metric"
 	"github.com/opsorch/opsorch-core/orcherr"
+	"github.com/opsorch/opsorch-core/orchestration"
 	"github.com/opsorch/opsorch-core/service"
 	"github.com/opsorch/opsorch-core/ticket"
 )
@@ -126,6 +127,23 @@ func (s *Server) handleServiceProviderConfig(name, pluginPath string, cfg map[st
 	return nil
 }
 
+func (s *Server) handleOrchestrationProviderConfig(name, pluginPath string, cfg map[string]any) error {
+	if pluginPath != "" {
+		s.orchestration.provider = newOrchestrationPluginProvider(pluginPath, cfg)
+		return nil
+	}
+	constructor, ok := orchestration.LookupProvider(name)
+	if !ok {
+		return fmt.Errorf("orchestration provider %s not registered", name)
+	}
+	provider, err := constructor(cfg)
+	if err != nil {
+		return err
+	}
+	s.orchestration.provider = provider
+	return nil
+}
+
 func (s *Server) handleProviderConfig(w http.ResponseWriter, r *http.Request) bool {
 	if !strings.HasPrefix(r.URL.Path, "/providers/") || r.Method != http.MethodPost {
 		return false
@@ -165,6 +183,8 @@ func (s *Server) handleProviderConfig(w http.ResponseWriter, r *http.Request) bo
 		applyErr = s.handleMessagingProviderConfig(req.Provider, req.Plugin, req.Config)
 	case "service":
 		applyErr = s.handleServiceProviderConfig(req.Provider, req.Plugin, req.Config)
+	case "orchestration":
+		applyErr = s.handleOrchestrationProviderConfig(req.Provider, req.Plugin, req.Config)
 	default:
 		writeError(w, http.StatusNotFound, orcherr.OpsOrchError{Code: "not_found", Message: "unknown capability"})
 		return true

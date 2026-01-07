@@ -232,3 +232,55 @@ func (p teamPluginProvider) Members(ctx context.Context, teamID string) ([]schem
 	var res []schema.TeamMember
 	return res, p.runner.call(ctx, "team.members", map[string]any{"teamID": teamID}, &res)
 }
+
+// Orchestration plugin provider ----------------------------------------------
+
+type orchestrationPluginProvider struct {
+	runner *pluginRunner
+}
+
+func newOrchestrationPluginProvider(path string, cfg map[string]any) orchestrationPluginProvider {
+	return orchestrationPluginProvider{runner: newPluginRunner(path, cfg)}
+}
+
+func (p orchestrationPluginProvider) QueryPlans(ctx context.Context, query schema.OrchestrationPlanQuery) ([]schema.OrchestrationPlan, error) {
+	var res []schema.OrchestrationPlan
+	return res, p.runner.call(ctx, "orchestration.plans.query", query, &res)
+}
+
+func (p orchestrationPluginProvider) GetPlan(ctx context.Context, planID string) (*schema.OrchestrationPlan, error) {
+	payload := map[string]any{"planId": planID}
+	var res schema.OrchestrationPlan
+	if err := p.runner.call(ctx, "orchestration.plans.get", payload, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (p orchestrationPluginProvider) QueryRuns(ctx context.Context, query schema.OrchestrationRunQuery) ([]schema.OrchestrationRun, error) {
+	var res []schema.OrchestrationRun
+	return res, p.runner.call(ctx, "orchestration.runs.query", query, &res)
+}
+
+func (p orchestrationPluginProvider) GetRun(ctx context.Context, runID string) (*schema.OrchestrationRun, error) {
+	payload := map[string]any{"runId": runID}
+	var res schema.OrchestrationRun
+	if err := p.runner.call(ctx, "orchestration.runs.get", payload, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (p orchestrationPluginProvider) StartRun(ctx context.Context, planID string) (*schema.OrchestrationRun, error) {
+	payload := map[string]any{"planId": planID}
+	var res schema.OrchestrationRun
+	if err := p.runner.call(ctx, "orchestration.runs.start", payload, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (p orchestrationPluginProvider) CompleteStep(ctx context.Context, runID string, stepID string, actor string, note string) error {
+	payload := map[string]any{"runId": runID, "stepId": stepID, "actor": actor, "note": note}
+	return p.runner.call(ctx, "orchestration.runs.steps.complete", payload, nil)
+}

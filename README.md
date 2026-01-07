@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/github/license/opsorch/opsorch-core)](https://github.com/opsorch/opsorch-core/blob/main/LICENSE)
 [![CI](https://github.com/opsorch/opsorch-core/workflows/CI/badge.svg)](https://github.com/opsorch/opsorch-core/actions)
 
-OpsOrch Core is a stateless, open-source orchestration layer that unifies incident, log, metric, ticket, messaging, and deployment workflows behind a single, provider-agnostic API. 
+OpsOrch Core is a stateless, open-source orchestration layer that unifies incident, log, metric, ticket, messaging, deployment, and workflow orchestration behind a single, provider-agnostic API. 
 It does not store operational data, and it does not include any built-in vendor integrations.  
 External adapters implement provider logic and are loaded dynamically by OpsOrch Core.
 
@@ -27,7 +27,7 @@ Adapters live in separate repos such as:
 
 OpsOrch Core never links vendor logic directly. Each capability is resolved at runtime by either importing an **in-process provider** (Go package that registers itself) or by launching a **local plugin binary** that speaks OpsOrch's stdio RPC protocol. At startup OpsOrch checks for environment overrides first, then falls back to any persisted configuration stored via the secret provider.
 
-Environment variables for any capability (`incident`, `alert`, `log`, `metric`, `ticket`, `messaging`, `service`, `deployment`, `team`, `secret`):
+Environment variables for any capability (`incident`, `alert`, `log`, `metric`, `ticket`, `messaging`, `service`, `deployment`, `team`, `orchestration`, `secret`):
 - `OPSORCH_<CAP>_PROVIDER=<registered name>` – name passed to the corresponding registry
 - `OPSORCH_<CAP>_CONFIG=<json>` – decrypted config map forwarded to the constructor
 - `OPSORCH_<CAP>_PLUGIN=/path/to/binary` – optional local plugin that overrides `OPSORCH_<CAP>_PROVIDER`
@@ -148,6 +148,32 @@ curl -s http://localhost:8080/teams/engineering
 
 # Get team members (requires team provider)
 curl -s http://localhost:8080/teams/engineering/members
+
+# Query Orchestration Plans (requires orchestration provider)
+curl -s -X POST http://localhost:8080/orchestration/plans/query \
+  -H "Content-Type: application/json" \
+  -d '{"scope": {"service": "api"}, "limit": 10}'
+
+# Get a specific plan (requires orchestration provider)
+curl -s http://localhost:8080/orchestration/plans/release-checklist
+
+# Query Orchestration Runs (requires orchestration provider)
+curl -s -X POST http://localhost:8080/orchestration/runs/query \
+  -H "Content-Type: application/json" \
+  -d '{"statuses": ["running", "blocked"]}'
+
+# Get a specific run (requires orchestration provider)
+curl -s http://localhost:8080/orchestration/runs/run-123
+
+# Start a new run from a plan (requires orchestration provider)
+curl -s -X POST http://localhost:8080/orchestration/runs \
+  -H "Content-Type: application/json" \
+  -d '{"planId": "release-checklist"}'
+
+# Complete a manual step (requires orchestration provider)
+curl -s -X POST http://localhost:8080/orchestration/runs/run-123/steps/approval/complete \
+  -H "Content-Type: application/json" \
+  -d '{"actor": "ops@example.com", "note": "Approved after review"}'
 ```
 
 Add `-H "Authorization: Bearer <token>"` to each curl when `OPSORCH_BEARER_TOKEN` is set.
@@ -251,6 +277,7 @@ OpsOrch exposes API endpoints for:
 - Services
 - Deployments
 - Teams
+- Orchestration (Plans and Runs)
 
 Schemas live under `schema/` and evolve as the system matures.
 
@@ -292,6 +319,27 @@ OpsOrch uses structured expressions for querying logs and metrics, replacing fre
 
 ### Provider Deep Links
 Normalized resources now carry optional `url` fields for deep linking back to upstream systems. For individual resources (incidents, alerts, tickets, etc.), the URL links to that specific resource. For collections like log entries and metric series, the URL links to the query results or filtered view in the source system (e.g., Datadog logs dashboard, Grafana metric chart). Adapters should populate these URLs whenever the provider exposes canonical UI links so OpsOrch clients can jump directly to the source system. The field is passthrough only—OpsOrch does not generate, log, or modify these URLs—so adapters remain responsible for ensuring they do not leak secrets.
+
+### Orchestration: Plans and Runs
+
+Ops teams have logs, metrics, tickets, and alerts—but during incidents or releases, the real challenge is knowing what to do next, in what order, and who needs to do it. Playbooks, runbooks, and release checklists encode that operational knowledge, but they often live as docs or tribal knowledge rather than something that actively guides execution.
+
+The orchestration capability provides a unified API for workflow engines. OpsOrch does not replace these engines—it exposes their plans and runs through a normalized interface so clients can query state and complete manual steps without direct integration with each provider. The actual execution remains provider-owned.
+
+**Key concepts:**
+
+- **Plan**: A provider-owned template describing ordered steps for an operational workflow. Plans are read-only—OpsOrch queries them from the upstream engine.
+- **Run**: A live instance of a plan with runtime state for each step.
+- **Step**: A unit of work within a plan. Steps have types (`manual`, `observe`, `invoke`, `verify`, `record`) and can depend on other steps.
+- **Manual Step Completion**: Clients can complete manual/blocked steps via the API, which forwards the completion to the upstream workflow engine.
+
+**API Endpoints:**
+- `POST /orchestration/plans/query` - Query plans with filters (scope, tags, limit)
+- `GET /orchestration/plans/{planId}` - Get a specific plan with all steps
+- `POST /orchestration/runs/query` - Query runs with filters (status, planId, scope)
+- `GET /orchestration/runs/{runId}` - Get a run with current step states
+- `POST /orchestration/runs` - Start a new run from a plan
+- `POST /orchestration/runs/{runId}/steps/{stepId}/complete` - Complete a manual step
 
 ### Adapter Architecture
 OpsOrch Core contains **no provider logic**.  

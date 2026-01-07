@@ -777,3 +777,311 @@ func TestAlertProviderListing(t *testing.T) {
 		t.Fatalf("expected provider %s in list, got %v", name, providers)
 	}
 }
+
+// ---- Orchestration Tests ----
+
+const (
+	orchestrationPlanURL = "https://orchestration.test/plans/"
+	orchestrationRunURL  = "https://orchestration.test/runs/"
+)
+
+// stubOrchestrationProvider implements orchestration.Provider for tests.
+type stubOrchestrationProvider struct{}
+
+func (s stubOrchestrationProvider) QueryPlans(ctx context.Context, query schema.OrchestrationPlanQuery) ([]schema.OrchestrationPlan, error) {
+	plans := []schema.OrchestrationPlan{
+		{
+			ID:          "plan-1",
+			Title:       "Release Checklist",
+			Description: "Standard release process",
+			URL:         orchestrationPlanURL + "plan-1",
+			Version:     "v1",
+			Steps: []schema.OrchestrationStep{
+				{ID: "step-1", Title: "Pre-flight checks", Type: "verify"},
+				{ID: "step-2", Title: "Manual approval", Type: "manual", DependsOn: []string{"step-1"}},
+			},
+		},
+	}
+	if query.Limit > 0 && query.Limit < len(plans) {
+		return plans[:query.Limit], nil
+	}
+	return plans, nil
+}
+
+func (s stubOrchestrationProvider) GetPlan(ctx context.Context, planID string) (*schema.OrchestrationPlan, error) {
+	return &schema.OrchestrationPlan{
+		ID:          planID,
+		Title:       "Release Checklist",
+		Description: "Standard release process",
+		URL:         orchestrationPlanURL + planID,
+		Version:     "v1",
+		Steps: []schema.OrchestrationStep{
+			{ID: "step-1", Title: "Pre-flight checks", Type: "verify"},
+			{ID: "step-2", Title: "Manual approval", Type: "manual", DependsOn: []string{"step-1"}},
+		},
+	}, nil
+}
+
+func (s stubOrchestrationProvider) QueryRuns(ctx context.Context, query schema.OrchestrationRunQuery) ([]schema.OrchestrationRun, error) {
+	now := time.Now()
+	runs := []schema.OrchestrationRun{
+		{
+			ID:        "run-1",
+			PlanID:    "plan-1",
+			Status:    "running",
+			URL:       orchestrationRunURL + "run-1",
+			CreatedAt: now,
+			UpdatedAt: now,
+			Steps: []schema.OrchestrationStepState{
+				{StepID: "step-1", Status: "succeeded"},
+				{StepID: "step-2", Status: "blocked"},
+			},
+		},
+	}
+	if query.Limit > 0 && query.Limit < len(runs) {
+		return runs[:query.Limit], nil
+	}
+	return runs, nil
+}
+
+func (s stubOrchestrationProvider) GetRun(ctx context.Context, runID string) (*schema.OrchestrationRun, error) {
+	now := time.Now()
+	return &schema.OrchestrationRun{
+		ID:        runID,
+		PlanID:    "plan-1",
+		Status:    "running",
+		URL:       orchestrationRunURL + runID,
+		CreatedAt: now,
+		UpdatedAt: now,
+		Steps: []schema.OrchestrationStepState{
+			{StepID: "step-1", Status: "succeeded"},
+			{StepID: "step-2", Status: "blocked"},
+		},
+	}, nil
+}
+
+func (s stubOrchestrationProvider) StartRun(ctx context.Context, planID string) (*schema.OrchestrationRun, error) {
+	now := time.Now()
+	return &schema.OrchestrationRun{
+		ID:        "run-new",
+		PlanID:    planID,
+		Status:    "created",
+		URL:       orchestrationRunURL + "run-new",
+		CreatedAt: now,
+		UpdatedAt: now,
+		Steps: []schema.OrchestrationStepState{
+			{StepID: "step-1", Status: "pending"},
+			{StepID: "step-2", Status: "pending"},
+		},
+	}, nil
+}
+
+func (s stubOrchestrationProvider) CompleteStep(ctx context.Context, runID string, stepID string, actor string, note string) error {
+	return nil
+}
+
+func TestOrchestrationMissingProvider(t *testing.T) {
+	srv := &Server{}
+	req := httptest.NewRequest(http.MethodGet, "/orchestration/plans", nil)
+	w := httptest.NewRecorder()
+
+	srv.ServeHTTP(w, req)
+
+	if status := w.Result().StatusCode; status != http.StatusNotImplemented {
+		t.Fatalf("expected 501 when provider missing, got %d", status)
+	}
+}
+
+func TestOrchestrationQueryPlans(t *testing.T) {
+	srv := &Server{orchestration: OrchestrationHandler{provider: stubOrchestrationProvider{}}, corsOrigin: "*"}
+	body, _ := json.Marshal(schema.OrchestrationPlanQuery{})
+	req := httptest.NewRequest(http.MethodPost, "/orchestration/plans/query", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+
+	srv.ServeHTTP(w, req)
+
+	res := w.Result()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", res.StatusCode)
+	}
+	var out []schema.OrchestrationPlan
+	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(out) != 1 || out[0].ID != "plan-1" {
+		t.Fatalf("unexpected plan response: %+v", out)
+	}
+	if out[0].URL != orchestrationPlanURL+"plan-1" {
+		t.Fatalf("expected plan url %splan-1, got %s", orchestrationPlanURL, out[0].URL)
+	}
+	if len(out[0].Steps) != 2 {
+		t.Fatalf("expected 2 steps, got %d", len(out[0].Steps))
+	}
+}
+
+func TestOrchestrationGetPlan(t *testing.T) {
+	srv := &Server{orchestration: OrchestrationHandler{provider: stubOrchestrationProvider{}}, corsOrigin: "*"}
+	req := httptest.NewRequest(http.MethodGet, "/orchestration/plans/plan-abc", nil)
+	w := httptest.NewRecorder()
+
+	srv.ServeHTTP(w, req)
+
+	res := w.Result()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", res.StatusCode)
+	}
+	var out schema.OrchestrationPlan
+	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if out.ID != "plan-abc" {
+		t.Fatalf("unexpected plan ID: %s", out.ID)
+	}
+	if out.URL != orchestrationPlanURL+"plan-abc" {
+		t.Fatalf("expected plan url %splan-abc, got %s", orchestrationPlanURL, out.URL)
+	}
+}
+
+func TestOrchestrationQueryRuns(t *testing.T) {
+	srv := &Server{orchestration: OrchestrationHandler{provider: stubOrchestrationProvider{}}, corsOrigin: "*"}
+	body, _ := json.Marshal(schema.OrchestrationRunQuery{})
+	req := httptest.NewRequest(http.MethodPost, "/orchestration/runs/query", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+
+	srv.ServeHTTP(w, req)
+
+	res := w.Result()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", res.StatusCode)
+	}
+	var out []schema.OrchestrationRun
+	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(out) != 1 || out[0].ID != "run-1" {
+		t.Fatalf("unexpected run response: %+v", out)
+	}
+	if out[0].URL != orchestrationRunURL+"run-1" {
+		t.Fatalf("expected run url %srun-1, got %s", orchestrationRunURL, out[0].URL)
+	}
+	if len(out[0].Steps) != 2 {
+		t.Fatalf("expected 2 step states, got %d", len(out[0].Steps))
+	}
+}
+
+func TestOrchestrationGetRun(t *testing.T) {
+	srv := &Server{orchestration: OrchestrationHandler{provider: stubOrchestrationProvider{}}, corsOrigin: "*"}
+	req := httptest.NewRequest(http.MethodGet, "/orchestration/runs/run-abc", nil)
+	w := httptest.NewRecorder()
+
+	srv.ServeHTTP(w, req)
+
+	res := w.Result()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", res.StatusCode)
+	}
+	var out schema.OrchestrationRun
+	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if out.ID != "run-abc" {
+		t.Fatalf("unexpected run ID: %s", out.ID)
+	}
+	if out.URL != orchestrationRunURL+"run-abc" {
+		t.Fatalf("expected run url %srun-abc, got %s", orchestrationRunURL, out.URL)
+	}
+}
+
+func TestOrchestrationStartRun(t *testing.T) {
+	srv := &Server{orchestration: OrchestrationHandler{provider: stubOrchestrationProvider{}}, corsOrigin: "*"}
+	body, _ := json.Marshal(map[string]string{"planId": "plan-1"})
+	req := httptest.NewRequest(http.MethodPost, "/orchestration/runs", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+
+	srv.ServeHTTP(w, req)
+
+	res := w.Result()
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("expected 201, got %d", res.StatusCode)
+	}
+	var out schema.OrchestrationRun
+	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if out.ID != "run-new" {
+		t.Fatalf("unexpected run ID: %s", out.ID)
+	}
+	if out.PlanID != "plan-1" {
+		t.Fatalf("expected planId plan-1, got %s", out.PlanID)
+	}
+	if out.Status != "created" {
+		t.Fatalf("expected status created, got %s", out.Status)
+	}
+}
+
+func TestOrchestrationStartRunMissingPlanID(t *testing.T) {
+	srv := &Server{orchestration: OrchestrationHandler{provider: stubOrchestrationProvider{}}, corsOrigin: "*"}
+	body, _ := json.Marshal(map[string]string{})
+	req := httptest.NewRequest(http.MethodPost, "/orchestration/runs", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+
+	srv.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", w.Code)
+	}
+}
+
+func TestOrchestrationCompleteStep(t *testing.T) {
+	srv := &Server{orchestration: OrchestrationHandler{provider: stubOrchestrationProvider{}}, corsOrigin: "*"}
+	body, _ := json.Marshal(map[string]string{"actor": "test-user", "note": "Approved"})
+	req := httptest.NewRequest(http.MethodPost, "/orchestration/runs/run-1/steps/step-2/complete", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+
+	srv.ServeHTTP(w, req)
+
+	res := w.Result()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", res.StatusCode)
+	}
+	var out map[string]string
+	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if out["status"] != "ok" {
+		t.Fatalf("expected status ok, got %s", out["status"])
+	}
+}
+
+func TestOrchestrationQueryPlansWithScope(t *testing.T) {
+	srv := &Server{orchestration: OrchestrationHandler{provider: stubOrchestrationProvider{}}, corsOrigin: "*"}
+	body, _ := json.Marshal(schema.OrchestrationPlanQuery{
+		Scope: schema.QueryScope{Service: "api", Team: "platform"},
+		Limit: 10,
+	})
+	req := httptest.NewRequest(http.MethodPost, "/orchestration/plans/query", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+
+	srv.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+}
+
+func TestOrchestrationQueryRunsWithFilters(t *testing.T) {
+	srv := &Server{orchestration: OrchestrationHandler{provider: stubOrchestrationProvider{}}, corsOrigin: "*"}
+	body, _ := json.Marshal(schema.OrchestrationRunQuery{
+		Statuses: []string{"running", "blocked"},
+		PlanIDs:  []string{"plan-1"},
+		Scope:    schema.QueryScope{Service: "api"},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/orchestration/runs/query", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+
+	srv.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+}
