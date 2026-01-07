@@ -52,7 +52,7 @@ type OrchestrationStep struct {
 	ID    string `json:"id"`
 	Title string `json:"title"`
 
-	// Type is a normalized hint: "manual", "observe", "invoke", "verify", "record".
+	// Type is a normalized hint: "manual", "automated".
 	Type string `json:"type,omitempty"`
 
 	// Description is operator-facing text. May include Markdown for manual steps.
